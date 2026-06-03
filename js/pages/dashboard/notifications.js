@@ -99,7 +99,18 @@ const TYPE_CONFIG = {
     // Для самого исключённого юзера — overview (он уже solo).
     return 'overview';
   } },
-  status_change:          { icon: 'ph-arrows-clockwise',   color: 'blue',   tab: (n) => n.request_id ? `requests/${n.request_id}` : 'requests' },
+  status_change: {
+    // Для контрактов: и иконка, и цвет — функции от data.action, чтобы
+    // разные события (заявка / принято / разрыв / истёк ...) визуально
+    // отличались в ленте.
+    icon: (n) => contractIcon(n) || 'ph-arrows-clockwise',
+    color: (n) => contractColor(n) || 'blue',
+    tab: (n) => {
+      const action = String(n?.data?.action ?? '');
+      if (action.startsWith('contract')) return 'contracts';
+      return n.request_id ? `requests/${n.request_id}` : 'requests';
+    },
+  },
   new_assignment:         { icon: 'ph-clipboard-text',     color: 'blue',   tab: (n) => n.request_id ? `requests/${n.request_id}` : 'requests' },
   due_date:               { icon: 'ph-clock-countdown',    color: 'amber',  tab: (n) => n.request_id ? `requests/${n.request_id}` : 'requests' },
   overdue:                { icon: 'ph-warning-octagon',    color: 'red',    tab: (n) => n.request_id ? `requests/${n.request_id}` : 'requests' },
@@ -109,7 +120,45 @@ const TYPE_CONFIG = {
 const FALLBACK_CONFIG = { icon: 'ph-info', color: 'slate', tab: () => 'overview' };
 
 function typeConfig(notif) {
-  return TYPE_CONFIG[notif?.notification_type] ?? FALLBACK_CONFIG;
+  const cfg = TYPE_CONFIG[notif?.notification_type] ?? FALLBACK_CONFIG;
+  // Если icon/color заданы функциями (для status_change.contract_*) —
+  // разворачиваем здесь, чтобы остальной код работал с строками.
+  return {
+    ...cfg,
+    icon:  typeof cfg.icon  === 'function' ? cfg.icon(notif)  : cfg.icon,
+    color: typeof cfg.color === 'function' ? cfg.color(notif) : cfg.color,
+  };
+}
+
+/** Иконка для контракт-уведомления по data.action. */
+function contractIcon(n) {
+  const a = String(n?.data?.action ?? '');
+  if (!a.startsWith('contract')) return null;
+  if (a.includes('terminat'))     return 'ph-link-break';
+  if (a.includes('expired'))      return 'ph-clock-countdown';
+  if (a.includes('accepted'))     return 'ph-check-circle';
+  if (a.includes('rejected')
+   || a.includes('cancelled'))    return 'ph-x-circle';
+  if (a.includes('edited'))       return 'ph-pencil-simple';
+  if (a.includes('request'))      return 'ph-handshake';
+  return null;
+}
+
+/** Цветовой тон для контракт-уведомления (как у событий с сотрудниками). */
+function contractColor(n) {
+  const a = String(n?.data?.action ?? '');
+  if (!a.startsWith('contract')) return null;
+  if (a === 'contract_accepted')          return 'green';
+  if (a === 'contract_rejected'
+   || a === 'contract_edit_rejected'
+   || a === 'contract_cancelled'
+   || a === 'contract_edit_cancelled')    return 'red';
+  if (a === 'contract_terminated')        return 'red';
+  if (a === 'contract_terminate_request') return 'amber';
+  if (a === 'contract_terminate_declined') return 'green';
+  if (a === 'contract_expired')           return 'slate';
+  if (a === 'contract_edited')            return 'amber';
+  return 'blue';
 }
 
 /**
@@ -127,9 +176,10 @@ function resolveSafeTab(tabSpec) {
   const baseTab = String(tabSpec).split(/[\/?]/)[0];
   const panel   = document.querySelector(`#tab-${baseTab}`);
   const navItem = document.querySelector(`.nav-item[data-tab="${baseTab}"]`);
-  const isAvailable = !!panel
-    && getComputedStyle(panel).display !== 'none' || (navItem && getComputedStyle(navItem).display !== 'none');
-  // Если ничего из tab-panel/nav-item не доступно для роли — fall-back.
+  // Таб недоступен для текущей роли, если:
+  //   • его tab-panel вообще нет в DOM, ИЛИ
+  //   • nav-item существует, но скрыт (display:none) для этой роли.
+  // В любом из этих случаев — fall-back, чтобы клик не вёл «в пустоту».
   if (!panel || (navItem && getComputedStyle(navItem).display === 'none')) {
     return safeFallbackTab();
   }
@@ -334,17 +384,24 @@ function showNotifToast(notif) {
     </div>
     ${mode === 'owner_decide' ? actionsHTML : ''}`;
 
-  // Click anywhere on the toast (NOT on action buttons — у них
-  // stopPropagation в их собственных handler'ах) → раскрывает toast
-  // целиком чтобы показать полный текст / title если они были
-  // обрезаны line-clamp'ом. Также помечает прочитанным.
-  // Навигация на вкладку из toast'а УБРАНА — пользователь специально
-  // просил, чтобы клик НЕ перебрасывал на другую вкладку.
-  // В owner_decide режиме body тоже кликабелен — раскроет, но
-  // accept/reject остаются нетронуты (у них stopPropagation ниже).
+  // Клик по тосту — та же двухтактовая логика, что у карточки в ленте:
+  //   • если тело УСЕЧЕНО (line-clamp) и тост ещё не раскрыт → первый
+  //     клик показывает полный текст + помечает прочитанным, не переходит;
+  //   • если усечения нет ИЛИ уже раскрыто → клик переходит на связанную
+  //     вкладку (см. TYPE_CONFIG[type].tab) и закрывает тост.
+  // В owner_decide режиме accept/reject имеют свой stopPropagation ниже.
   el.addEventListener('click', () => {
-    el.classList.toggle('is-expanded');
+    const text = el.querySelector('.notify-toast-text');
+    const truncated = text && text.scrollHeight - 1 > text.clientHeight;
+    if (truncated && !el.classList.contains('is-expanded')) {
+      el.classList.add('is-expanded');
+      if (!notif.read_at) markRead(notif);
+      return;
+    }
+    // Раскрыто (или нечего раскрывать) → переходим на нужную вкладку.
     if (!notif.read_at) markRead(notif);
+    removeToast(el);
+    onItemClick(notif);
   });
   el.querySelector('[data-action="read"]')?.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -591,6 +648,11 @@ export function resolveTitle(n) {
   }
   if (type === 'join_request' && (action === 'invited_by_org' || rawMsg.includes('invited_by_org'))) {
     return t('notifications.types.invited_by_org');
+  }
+  // Контракты: status_change + data.action='contract_*'. Заголовок —
+  // по конкретному действию; имя контракта подставляется в тело (body).
+  if (type === 'status_change' && action.startsWith('contract')) {
+    return t(`notifications.types.${action}`);
   }
   // Owner-side join_request — дублируем имя заявителя в title.
   if (type === 'join_request' && n?.data?.applicantName) {

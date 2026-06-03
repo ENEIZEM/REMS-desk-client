@@ -1,51 +1,92 @@
 /* ═══════════════════════════════════════════════════════════════
-   Employee Contracts placeholder.
-   Сотрудник видит список контрактов своей орги (read-only).
-   Реальный API ещё не реализован — рендерим заглушку с
-   объяснением и стандартными стилевыми блоками.
+   Employee Contracts — read-only список контрактов орги. Кнопка
+   «Открыть контракт» доступна (модалка с текстом + ссылка на док
+   — wiring в lib/общем компоненте).
    ═══════════════════════════════════════════════════════════════ */
+import { contracts as contractsApi, media } from '../../../../api.js';
+import { toast, errorMessage } from '../../../../auth.js';
+import { applyTranslations, t, onLangChange } from '../../../../i18n.js';
+import { openModal } from '../../ui-helpers.js';
+import { contractsBlocksHTML } from '../_shared/contracts-ui.js';
 
-import { t, applyTranslations } from '../../../../i18n.js';
+let _current = [], _terminated = [];
 
 export function mountEmployeeContracts(profile) {
   const slot = document.querySelector('#contracts-slot');
   if (!slot) return;
   const tabPanel = document.querySelector('#tab-contracts');
   if (tabPanel) tabPanel.classList.add('tab-fill');
-  const orgName = profile?.organization?.name || '—';
 
-  const html = `
+  slot.innerHTML = `
     <div class="page-header">
       <h1 class="page-title" data-i18n="nav.contracts">Контракты</h1>
       <p class="page-desc" data-i18n="contracts.desc">Список контрактов вашей организации.</p>
     </div>
-
-    <div class="card profile-card fill-block">
-      <div class="profile-card-header profile-card-header--with-actions">
-        <div class="profile-card-icon navy"><i class="ph-bold ph-handshake"></i></div>
-        <h3 class="profile-card-title" data-i18n="contracts.org_contracts">Контракты организации</h3>
-        <div class="notif-header-actions">
-          <span class="profile-card-tooltip profile-card-tooltip--end" tabindex="0" data-tooltip-key="contracts.hint">
-            <i class="ph ph-info"></i>
-          </span>
-        </div>
-      </div>
-      <div class="profile-card-body requests-feed-body">
-        <div class="empty-state empty-state--inline">
-          <i class="ph ph-handshake"></i>
-          <span class="empty-state-text" data-i18n="contracts.empty">
-            Контрактов ещё нет. Когда руководитель ${escapeHTML(orgName)} оформит контракт, он появится здесь.
-          </span>
-        </div>
-      </div>
-    </div>
+    <div id="employee-contracts-list"></div>
   `;
-  slot.innerHTML = html;
   applyTranslations();
+
+  const list = slot.querySelector('#employee-contracts-list');
+  list?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-ct-action="view"]');
+    if (!btn) return;
+    const id = Number(btn.dataset.ctId);
+    if (!id) return;
+    openContractView(id);
+  });
+
+  if (!window.__remsEmployeeContractsLangWired) {
+    window.__remsEmployeeContractsLangWired = true;
+    onLangChange(() => {
+      if (document.body.dataset.role !== 'employee') return;
+      if (document.querySelector('#employee-contracts-list')) loadContracts();
+    });
+    window.addEventListener('rems:reload-contracts', () => {
+      if (document.querySelector('#employee-contracts-list')) loadContracts();
+    });
+  }
+  loadContracts();
 }
 
-function escapeHTML(s) {
-  return String(s ?? '')
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+async function loadContracts() {
+  const list = document.querySelector('#employee-contracts-list');
+  if (!list) return;
+  try {
+    const resp = await contractsApi.list();
+    const data = resp.data || { current: [], terminated: [] };
+    _current = data.current || [];
+    _terminated = data.terminated || [];
+    list.innerHTML = contractsBlocksHTML(data, false);  // read-only
+  } catch (err) {
+    toast(errorMessage(err), 'error');
+  }
+}
+
+function openContractView(id) {
+  const c = _current.find(x => x.id === id) || _terminated.find(x => x.id === id);
+  if (!c) return;
+  const nameEl = document.getElementById('cv-name');
+  if (nameEl) nameEl.textContent = c.name;
+  const descEl   = document.getElementById('cv-desc');
+  const noDescEl = document.getElementById('cv-no-desc');
+  if (c.description && c.description.trim()) {
+    if (descEl)   { descEl.textContent = c.description; descEl.style.display = ''; }
+    if (noDescEl) noDescEl.style.display = 'none';
+  } else {
+    if (descEl)   descEl.style.display = 'none';
+    if (noDescEl) noDescEl.style.display = '';
+  }
+  const docBtn = document.getElementById('btn-cv-open-doc');
+  if (docBtn) {
+    if (c.doc?.id) {
+      docBtn.style.display = '';
+      docBtn.onclick = async () => {
+        docBtn.classList.add('btn-loading');
+        try { await media.openPrivate(c.doc.id); }
+        catch (err) { toast(errorMessage(err), 'error'); }
+        finally { docBtn.classList.remove('btn-loading'); }
+      };
+    } else docBtn.style.display = 'none';
+  }
+  openModal('contract-view-modal');
 }

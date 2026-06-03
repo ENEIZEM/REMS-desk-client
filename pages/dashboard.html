@@ -1641,6 +1641,355 @@
   </div>
 </div>
 
+<!-- ═══ Contracts: create new contract (owner) — 3 steps ═══════════ -->
+<div class="modal-backdrop" id="contract-create-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-card-icon navy"><i class="ph-bold ph-handshake"></i></div>
+      <div class="modal-header-text">
+        <h3 class="modal-title" data-i18n="contracts.create_title">Новый контракт</h3>
+        <p class="modal-subtitle"><span data-i18n="contracts.step">Шаг</span> <span id="ct-step-cur">1</span> <span data-i18n="contracts.of">из</span> 3</p>
+      </div>
+      <button class="modal-close" data-close-modal="contract-create-modal"><i class="ph ph-x"></i></button>
+    </div>
+    <!-- Stepper в стиле страницы регистрации: пронумерованные кружки -->
+    <div class="steps-track ct-steps-modal" id="ct-stepper">
+      <div class="step-item">
+        <div class="step-circle active" data-step="1">1</div>
+        <div class="step-line" data-line="1"></div>
+      </div>
+      <div class="step-item">
+        <div class="step-circle" data-step="2">2</div>
+        <div class="step-line" data-line="2"></div>
+      </div>
+      <div class="step-item" style="flex:0;">
+        <div class="step-circle" data-step="3">3</div>
+      </div>
+    </div>
+    <div class="modal-body">
+      <!-- ── Step 1: партнёр + роль + название ────────────────────── -->
+      <div id="ct-step-1" class="ct-step">
+        <div class="form-group">
+          <label class="form-label" for="ct-partner-id"><span data-i18n="contracts.partner_id_label">ID организации-партнёра</span> <span class="req">*</span></label>
+          <div class="input-wrap"><i class="ph ph-hash input-icon"></i>
+            <input id="ct-partner-id" type="number" min="1" class="form-input" placeholder="42" autocomplete="off"></div>
+          <div class="form-error" id="err-ct-partner"><i class="ph ph-warning-circle"></i><span></span></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label"><span data-i18n="contracts.role_label">Ваша роль в контракте</span> <span class="req">*</span></label>
+          <div class="role-grid" role="radiogroup" style="grid-template-columns:1fr 1fr;">
+            <label class="role-card contact-card role-card--neutral selected" data-ct-role="client">
+              <input type="radio" name="ct-role" value="client" class="sr-only" checked>
+              <div class="role-card-icon"><i class="ph ph-buildings"></i></div>
+              <div class="contact-card-text">
+                <div class="role-card-label" data-i18n="contracts.role_client">Заказчик</div>
+                <div class="role-card-desc" data-i18n="contracts.role_client_desc">Создаёт заявки на ремонт</div>
+              </div>
+            </label>
+            <label class="role-card contact-card role-card--neutral" data-ct-role="contractor">
+              <input type="radio" name="ct-role" value="contractor" class="sr-only">
+              <div class="role-card-icon"><i class="ph ph-wrench"></i></div>
+              <div class="contact-card-text">
+                <div class="role-card-label" data-i18n="contracts.role_contractor">Исполнитель</div>
+                <div class="role-card-desc" data-i18n="contracts.role_contractor_desc">Выполняет заявки</div>
+              </div>
+            </label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="ct-name"><span data-i18n="contracts.name_label">Название контракта</span> <span class="req">*</span></label>
+          <input id="ct-name" type="text" class="form-input" maxlength="255" data-i18n-ph="contracts.name_ph" placeholder="Обслуживание оргтехники">
+          <div class="form-error" id="err-ct-name"><i class="ph ph-warning-circle"></i><span></span></div>
+        </div>
+      </div>
+
+      <!-- ── Step 2: описание (*) + документ + дата (*) ─────────────── -->
+      <div id="ct-step-2" class="ct-step" style="display:none;">
+        <div class="form-group">
+          <label class="form-label" for="ct-desc"><span data-i18n="contracts.desc_label">Описание</span> <span class="req">*</span></label>
+          <textarea id="ct-desc" class="form-input" rows="4" maxlength="5000" data-i18n-ph="contracts.desc_ph" placeholder="Условия, объём работ, контактные лица…"></textarea>
+          <div class="form-error" id="err-ct-desc"><i class="ph ph-warning-circle"></i><span></span></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" data-i18n="contracts.doc_label">Документ (PDF/изображение)</label>
+          <div class="contract-doc-tile" id="ct-doc-tile" tabindex="0" role="button">
+            <div class="contract-doc-empty" id="ct-doc-empty">
+              <i class="ph-duotone ph-paperclip"></i>
+              <span data-i18n="contracts.doc_pick">Выбрать файл</span>
+            </div>
+            <div class="contract-doc-filled hidden" id="ct-doc-filled">
+              <i id="ct-doc-icon" class="ph-duotone ph-file-pdf"></i>
+              <div class="contract-doc-meta">
+                <div class="contract-doc-name" id="ct-doc-name">—</div>
+                <div class="contract-doc-size" id="ct-doc-size">—</div>
+              </div>
+              <button type="button" id="ct-doc-clear" class="btn-icon" title="Удалить" aria-label="remove"><i class="ph ph-x"></i></button>
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="ct-end-date"><span data-i18n="contracts.end_date_label">Дата завершения</span> <span class="req">*</span></label>
+          <input id="ct-end-date" type="date" min="1970-01-01" max="9999-12-31" class="form-input">
+          <div class="form-error" id="err-ct-end-date"><i class="ph ph-warning-circle"></i><span></span></div>
+        </div>
+      </div>
+
+      <!-- ── Step 3: SLA (все 4 обязательны) ───────────────────────── -->
+      <div id="ct-step-3" class="ct-step" style="display:none;">
+        <p class="form-helper" style="font-size:var(--text-xs); color:var(--clr-text-muted); margin:0 0 .65rem;">
+          <span data-i18n="contracts.sla_step_hint_req">Целевое время реакции на заявки по приоритетам (часы). Заполните все 4 значения.</span>
+        </p>
+        <div class="ct-sla-block">
+          <div class="ct-sla-row">
+            <span class="sla-pri sla-critical"><span data-i18n="profile.sla_critical">Критический</span> <span class="req">*</span></span>
+            <div class="ct-sla-input"><input id="ct-sla-critical" type="number" min="1" max="720" placeholder="—" class="form-input"><span class="ct-sla-unit" data-i18n="profile.hours_short">ч</span></div>
+          </div>
+          <div class="ct-sla-row">
+            <span class="sla-pri sla-high"><span data-i18n="profile.sla_high">Высокий</span> <span class="req">*</span></span>
+            <div class="ct-sla-input"><input id="ct-sla-high" type="number" min="1" max="720" placeholder="—" class="form-input"><span class="ct-sla-unit" data-i18n="profile.hours_short">ч</span></div>
+          </div>
+          <div class="ct-sla-row">
+            <span class="sla-pri sla-medium"><span data-i18n="profile.sla_medium">Средний</span> <span class="req">*</span></span>
+            <div class="ct-sla-input"><input id="ct-sla-medium" type="number" min="1" max="720" placeholder="—" class="form-input"><span class="ct-sla-unit" data-i18n="profile.hours_short">ч</span></div>
+          </div>
+          <div class="ct-sla-row">
+            <span class="sla-pri sla-low"><span data-i18n="profile.sla_low">Низкий</span> <span class="req">*</span></span>
+            <div class="ct-sla-input"><input id="ct-sla-low" type="number" min="1" max="720" placeholder="—" class="form-input"><span class="ct-sla-unit" data-i18n="profile.hours_short">ч</span></div>
+          </div>
+        </div>
+        <div class="form-error" id="err-ct-sla" style="margin-top:.5rem;"><i class="ph ph-warning-circle"></i><span></span></div>
+      </div>
+
+      <div class="alert alert-error hidden" id="err-ct" style="margin-top:.75rem;"><i class="ph ph-warning-circle"></i><span id="err-ct-text"></span></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary is-pending" id="btn-ct-next">
+        <span id="ct-next-label" data-i18n="common.continue">Далее</span> <i class="ph ph-arrow-right"></i>
+      </button>
+      <button class="btn btn-secondary" id="btn-ct-back" style="display:none;"><i class="ph ph-arrow-left"></i> <span data-i18n="common.back">Назад</span></button>
+      <button class="btn btn-secondary" data-close-modal="contract-create-modal" data-i18n="common.cancel">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Contracts: edit (owner) — 3 steps ═════════════════════════ -->
+<div class="modal-backdrop" id="contract-edit-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-card-icon navy"><i class="ph-bold ph-pencil-simple"></i></div>
+      <div class="modal-header-text">
+        <h3 class="modal-title" data-i18n="contracts.edit_title">Редактировать контракт</h3>
+        <p class="modal-subtitle"><span data-i18n="contracts.step">Шаг</span> <span id="cte-step-cur">1</span> <span data-i18n="contracts.of">из</span> 3</p>
+      </div>
+      <button class="modal-close" data-close-modal="contract-edit-modal"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="steps-track ct-steps-modal" id="cte-stepper">
+      <div class="step-item">
+        <div class="step-circle active" data-step="1">1</div>
+        <div class="step-line" data-line="1"></div>
+      </div>
+      <div class="step-item">
+        <div class="step-circle" data-step="2">2</div>
+        <div class="step-line" data-line="2"></div>
+      </div>
+      <div class="step-item" style="flex:0;">
+        <div class="step-circle" data-step="3">3</div>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="contract-edit-notice">
+        <i class="ph-bold ph-info"></i>
+        <span data-i18n="contracts.edit_notice">Изменения требуют согласия второй стороны. Прежний вариант контракта будет перенесён в блок «Завершённые контракты».</span>
+      </div>
+      <!-- Step 1: контекст + название -->
+      <div id="cte-step-1" class="ct-step">
+        <p class="form-helper" id="cte-context" style="font-size:var(--text-sm); color:var(--clr-text-secondary); margin:0 0 .5rem;">—</p>
+        <div class="form-group">
+          <label class="form-label" for="cte-name"><span data-i18n="contracts.name_label">Название контракта</span> <span class="req">*</span></label>
+          <input id="cte-name" type="text" class="form-input" maxlength="255">
+          <div class="form-error" id="err-cte-name"><i class="ph ph-warning-circle"></i><span></span></div>
+        </div>
+      </div>
+      <!-- Step 2: описание (*) + документ + дата (*) -->
+      <div id="cte-step-2" class="ct-step" style="display:none;">
+        <div class="form-group">
+          <label class="form-label" for="cte-desc"><span data-i18n="contracts.desc_label">Описание</span> <span class="req">*</span></label>
+          <textarea id="cte-desc" class="form-input" rows="4" maxlength="5000"></textarea>
+          <div class="form-error" id="err-cte-desc"><i class="ph ph-warning-circle"></i><span></span></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" data-i18n="contracts.doc_label">Документ</label>
+          <div class="contract-doc-tile" id="cte-doc-tile" tabindex="0" role="button">
+            <div class="contract-doc-empty" id="cte-doc-empty">
+              <i class="ph-duotone ph-paperclip"></i>
+              <span data-i18n="contracts.doc_pick">Выбрать файл</span>
+            </div>
+            <div class="contract-doc-filled hidden" id="cte-doc-filled">
+              <i id="cte-doc-icon" class="ph-duotone ph-file-pdf"></i>
+              <div class="contract-doc-meta">
+                <div class="contract-doc-name" id="cte-doc-name">—</div>
+                <div class="contract-doc-size" id="cte-doc-size">—</div>
+              </div>
+              <button type="button" id="cte-doc-clear" class="btn-icon" title="Удалить"><i class="ph ph-x"></i></button>
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="cte-end-date"><span data-i18n="contracts.end_date_label">Дата завершения</span> <span class="req">*</span></label>
+          <input id="cte-end-date" type="date" min="1970-01-01" max="9999-12-31" class="form-input">
+          <div class="form-error" id="err-cte-end-date"><i class="ph ph-warning-circle"></i><span></span></div>
+        </div>
+      </div>
+      <!-- Step 3: SLA (все 4 обязательны) -->
+      <div id="cte-step-3" class="ct-step" style="display:none;">
+        <p class="form-helper" style="font-size:var(--text-xs); color:var(--clr-text-muted); margin:0 0 .65rem;">
+          <span data-i18n="contracts.sla_step_hint_req">Целевое время реакции на заявки по приоритетам (часы). Заполните все 4 значения.</span>
+        </p>
+        <div class="ct-sla-block">
+          <div class="ct-sla-row">
+            <span class="sla-pri sla-critical"><span data-i18n="profile.sla_critical">Критический</span> <span class="req">*</span></span>
+            <div class="ct-sla-input"><input id="cte-sla-critical" type="number" min="1" max="720" placeholder="—" class="form-input"><span class="ct-sla-unit" data-i18n="profile.hours_short">ч</span></div>
+          </div>
+          <div class="ct-sla-row">
+            <span class="sla-pri sla-high"><span data-i18n="profile.sla_high">Высокий</span> <span class="req">*</span></span>
+            <div class="ct-sla-input"><input id="cte-sla-high" type="number" min="1" max="720" placeholder="—" class="form-input"><span class="ct-sla-unit" data-i18n="profile.hours_short">ч</span></div>
+          </div>
+          <div class="ct-sla-row">
+            <span class="sla-pri sla-medium"><span data-i18n="profile.sla_medium">Средний</span> <span class="req">*</span></span>
+            <div class="ct-sla-input"><input id="cte-sla-medium" type="number" min="1" max="720" placeholder="—" class="form-input"><span class="ct-sla-unit" data-i18n="profile.hours_short">ч</span></div>
+          </div>
+          <div class="ct-sla-row">
+            <span class="sla-pri sla-low"><span data-i18n="profile.sla_low">Низкий</span> <span class="req">*</span></span>
+            <div class="ct-sla-input"><input id="cte-sla-low" type="number" min="1" max="720" placeholder="—" class="form-input"><span class="ct-sla-unit" data-i18n="profile.hours_short">ч</span></div>
+          </div>
+        </div>
+        <div class="form-error" id="err-cte-sla" style="margin-top:.5rem;"><i class="ph ph-warning-circle"></i><span></span></div>
+      </div>
+      <div class="alert alert-error hidden" id="err-cte" style="margin-top:.75rem;"><i class="ph ph-warning-circle"></i><span id="err-cte-text"></span></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary is-pending" id="btn-cte-next">
+        <span id="cte-next-label" data-i18n="common.continue">Далее</span> <i class="ph ph-arrow-right"></i>
+      </button>
+      <button class="btn btn-secondary" id="btn-cte-back" style="display:none;"><i class="ph ph-arrow-left"></i> <span data-i18n="common.back">Назад</span></button>
+      <button class="btn btn-secondary" data-close-modal="contract-edit-modal" data-i18n="common.cancel">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<!-- Doc preview modal — инжектируется модулем js/lib/doc-preview.js. -->
+
+
+<!-- ═══ Contracts: reason modal (cancel / reject) ═════════════════ -->
+<div class="modal-backdrop" id="contract-reason-modal">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-card-icon danger"><i class="ph-bold ph-x-circle"></i></div>
+      <div class="modal-header-text">
+        <h3 class="modal-title" id="crm-title">—</h3>
+      </div>
+      <button class="modal-close" data-close-modal="contract-reason-modal"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <p style="margin:0 0 .65rem; font-size:var(--text-sm); color:var(--clr-text-secondary);" id="crm-body">—</p>
+      <div class="form-group">
+        <label class="form-label" for="crm-reason" data-i18n="contracts.reason_label">Сообщение второй стороне (необязательно)</label>
+        <textarea id="crm-reason" class="form-input" rows="3" maxlength="500"
+                  data-i18n-ph="contracts.reason_ph"
+                  placeholder="Коротко поясните решение."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="btn-crm-confirm" data-i18n="common.confirm">Подтвердить</button>
+      <button class="btn btn-secondary" data-close-modal="contract-reason-modal" data-i18n="common.cancel">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Contracts: view-only modal (Открыть контракт) ═════════════ -->
+<!-- Дублирующиеся данные (партнёр / роль / даты / SLA) уже видны в карточке —
+     здесь показываем только текст контракта (с сохранением форматирования)
+     и кнопку открытия документа, если он приложен. -->
+<div class="modal-backdrop" id="contract-view-modal">
+  <div class="modal" style="max-width:640px;">
+    <div class="modal-header">
+      <div class="modal-card-icon"><i class="ph-bold ph-file-text"></i></div>
+      <div class="modal-header-text">
+        <h3 class="modal-title" id="cv-name">—</h3>
+      </div>
+      <button class="modal-close" data-close-modal="contract-view-modal"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <pre id="cv-desc" class="cv-desc"></pre>
+      <div id="cv-no-desc" class="empty-state empty-state--inline" style="display:none;">
+        <i class="ph ph-file-dashed"></i>
+        <span class="empty-state-text" data-i18n="contracts.view_no_text">Текст контракта не задан.</span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" id="btn-cv-open-doc" style="display:none;"><i class="ph ph-file-arrow-down"></i> <span data-i18n="contracts.doc_open">Открыть документ</span></button>
+      <button class="btn btn-secondary" data-close-modal="contract-view-modal" data-i18n="common.close">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Contracts: terminate-respond (получатель подтверждает разрыв) ═ -->
+<div class="modal-backdrop" id="contract-terminate-respond-modal">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-card-icon danger"><i class="ph-bold ph-link-break"></i></div>
+      <div class="modal-header-text">
+        <h3 class="modal-title" data-i18n="contracts.terminate_respond_title">Подтвердить разрыв?</h3>
+      </div>
+      <button class="modal-close" data-close-modal="contract-terminate-respond-modal"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <p style="margin:0 0 .5rem; font-size:var(--text-sm); color:var(--clr-text-secondary);">
+        <span data-i18n="contracts.terminate_respond_body">Партнёр запросил разрыв контракта</span>
+        <strong id="ctr-name" style="color:var(--clr-text-primary);">—</strong>.
+      </p>
+      <div id="ctr-reason-wrap" style="margin:.5rem 0; padding:.6rem .75rem; background:var(--clr-bg-subtle); border-radius:var(--radius-md); display:none;">
+        <div style="font-size:var(--text-xs); color:var(--clr-text-muted); margin-bottom:.15rem;" data-i18n="contracts.termination_reason">Причина разрыва</div>
+        <div id="ctr-reason" style="font-size:var(--text-sm); color:var(--clr-text-primary);">—</div>
+      </div>
+      <p style="margin:.75rem 0 0; font-size:var(--text-xs); color:var(--clr-text-muted);" data-i18n="contracts.terminate_respond_hint">
+        Подтверждение завершит контракт окончательно. Если вы не согласны — нажмите «Отклонить».
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="btn-ctr-confirm" data-i18n="contracts.btn_terminate_confirm">Подтвердить разрыв</button>
+      <button class="btn btn-secondary" id="btn-ctr-decline" data-i18n="contracts.btn_terminate_decline">Отклонить</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Contracts: terminate request (owner) ══════════════════════ -->
+<div class="modal-backdrop" id="contract-terminate-modal">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-card-icon danger"><i class="ph-bold ph-link-break"></i></div>
+      <div class="modal-header-text">
+        <h3 class="modal-title" data-i18n="contracts.terminate_title">Разорвать контракт?</h3>
+      </div>
+      <button class="modal-close" data-close-modal="contract-terminate-modal"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <p style="margin:0 0 .75rem; font-size:var(--text-sm); color:var(--clr-text-secondary);">
+        <span data-i18n="contracts.terminate_body">Запрос на разрыв увидит вторая сторона и должна будет его подтвердить.</span>
+      </p>
+      <div class="form-group">
+        <label class="form-label" for="ctt-reason" data-i18n="contracts.terminate_reason_label">Причина (необязательно)</label>
+        <textarea id="ctt-reason" class="form-input" rows="3" maxlength="2000" data-i18n-ph="contracts.terminate_reason_ph" placeholder="Коротко поясните причину."></textarea>
+      </div>
+      <div class="alert alert-error hidden" id="err-ctt"><i class="ph ph-warning-circle"></i><span id="err-ctt-text"></span></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="btn-ctt-confirm" data-i18n="contracts.terminate_send">Запросить разрыв</button>
+      <button class="btn btn-secondary" data-close-modal="contract-terminate-modal" data-i18n="common.cancel">Отмена</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast-container"></div>
 
 <script src="/socket.io/socket.io.js"></script>

@@ -45,6 +45,7 @@ export function attachLoader({
   let shownAt = 0;
   let cancelled = false;
   let originalPosition = null;
+  let originalMinHeight = null;
 
   const showTimer = setTimeout(() => {
     if (cancelled) return;
@@ -62,6 +63,15 @@ export function attachLoader({
       if (cs.position === 'static') {
         originalPosition = host.style.position;
         host.style.position = 'relative';
+      }
+      // Если хост ПУСТОЙ (например, #sessions-list до загрузки списка),
+      // его высота = 0 → inset:0-overlay тоже 0×0, спиннер flex-центром
+      // вытекает наружу и заходит на шапку. Даём хосту min-height на
+      // время загрузки, чтобы overlay имел габариты, и убираем на teardown.
+      const rect = host.getBoundingClientRect();
+      if (rect.height < 96) {
+        originalMinHeight = host.style.minHeight;
+        host.style.minHeight = '8rem';
       }
     } else {
       overlay.classList.add('loader-overlay--fixed');
@@ -82,7 +92,8 @@ export function attachLoader({
       // Match the CSS fade-out duration so we don't yank the node mid-anim.
       setTimeout(() => {
         node.remove();
-        if (originalPosition !== null) host.style.position = originalPosition;
+        if (originalPosition  !== null) host.style.position  = originalPosition;
+        if (originalMinHeight !== null) host.style.minHeight = originalMinHeight;
       }, 180);
     }, remaining);
   };

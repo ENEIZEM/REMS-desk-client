@@ -160,9 +160,6 @@ export const auth = {
    */
   resetPassword: (payload) => request('POST', '/auth/reset-password', payload),
 
-  /** payload: { target, code, new_pin, new_pin_confirm } */
-  resetPin:      (payload) => request('POST', '/auth/reset-pin',      payload),
-
   /** Превью проверки кода на шаге 2 «забыли пароль/PIN». Не консьюмит код. */
   resetVerifyCode: (target, code) => request('POST', '/auth/reset-verify-code', { target, code }),
 
@@ -294,6 +291,58 @@ export const members = {
 };
 
 // ─────────────────────────────────────────────────────────────────
+// CONTRACTS  →  /api/orgs/contracts/*
+// GET   /api/orgs/contracts                       — { current, terminated }
+// POST  /api/orgs/contracts                       — owner предлагает контракт
+// PATCH /api/orgs/contracts/:id/respond           — accept | reject (вторая сторона)
+// PATCH /api/orgs/contracts/:id                   — edit (требует re-consent)
+// POST  /api/orgs/contracts/:id/terminate         — запрос разрыва (с причиной)
+// PATCH /api/orgs/contracts/:id/terminate-respond — confirm | decline разрыва
+// ─────────────────────────────────────────────────────────────────
+export const contracts = {
+  /** Списки контрактов организации: { current, terminated }. */
+  list: () => request('GET', '/orgs/contracts'),
+
+  /** Быстрая проверка партнёра перед открытием формы создания/правки.
+   *  200 → { id, name }; 4xx → корректный error_key (not_found / inactive /
+   *  cannot_contract_self / already_exists). */
+  checkPartner: (id) => request('GET', `/orgs/contracts/partner-check/${id}`),
+
+  /**
+   * Предложить контракт другой организации (owner).
+   * payload: {
+   *   partner_org_id, my_role:'client'|'contractor', contract_name,
+   *   contract_description?, end_date?, contract_doc_media_id?,
+   *   sla_critical_response_h?, sla_high_response_h?,
+   *   sla_medium_response_h?, sla_low_response_h?
+   * }
+   */
+  create: (payload) => request('POST', '/orgs/contracts', payload),
+
+  /** Принять/отклонить входящий контракт. action: 'accept'|'reject'.
+   *  reason — опц. текст для второй стороны. */
+  respond: (id, action, reason) =>
+    request('PATCH', `/orgs/contracts/${id}/respond`, reason ? { action, reason } : { action }),
+
+  /** Изменить характеристики (owner). Любая правка → повторное согласие. */
+  update: (id, payload) => request('PATCH', `/orgs/contracts/${id}`, payload),
+
+  /** Отменить СВОЙ pending-запрос (новую заявку или редактирование).
+   *  reason — опц. текст для второй стороны. */
+  cancel: (id, reason) =>
+    request('DELETE', `/orgs/contracts/${id}`, reason ? { reason } : undefined),
+
+  /** Запросить разрыв с причиной (owner). */
+  terminate: (id, reason) => request('POST', `/orgs/contracts/${id}/terminate`, reason ? { reason } : {}),
+
+  /** Ответить на запрос разрыва. action: 'confirm'|'decline'. */
+  terminateRespond: (id, action) => request('PATCH', `/orgs/contracts/${id}/terminate-respond`, { action }),
+
+  /** Инициатор отзывает СВОЙ запрос разрыва (paused → active). */
+  terminateCancel: (id) => request('DELETE', `/orgs/contracts/${id}/terminate-request`),
+};
+
+// ─────────────────────────────────────────────────────────────────
 // NOTIFICATIONS  →  /api/notifications
 // GET   /api/notifications
 // PATCH /api/notifications/:id/read   (one at a time)
@@ -346,6 +395,32 @@ export const media = {
 
   /** Build URL for a private file served via the authenticated endpoint. */
   privateUrl: (mediaFileId) => `${API_BASE}/upload/${mediaFileId}/file`,
+
+  /**
+   * Открыть приватный медиафайл в новой вкладке. Эндпоинт защищён
+   * `authenticateToken` — обычный `<a href>` не положит Bearer-заголовок
+   * и получит 401. Здесь сами fetch'им с auth, делаем blob URL и
+   * открываем его в новом окне.
+   */
+  openPrivate: async (mediaFileId) => {
+    const token = localStorage.getItem('rems_token');
+    const did   = await getDeviceId();
+    const headers = { 'X-Device-Id': did };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch(`${API_BASE}/upload/${mediaFileId}/file`, { headers });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      const err  = new Error(body?.error_key || `HTTP ${res.status}`);
+      err.error_key = body?.error_key;
+      err.status    = res.status;
+      throw err;
+    }
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    window.open(url, '_blank', 'noopener');
+    // Освобождаем blob чуть позже — браузер уже взял ссылку.
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────

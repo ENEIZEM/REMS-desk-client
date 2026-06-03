@@ -8,6 +8,7 @@
 
 import { hide, show } from '../_shared/role-helpers.js';
 import { mountSoloHome } from './home.js';
+import { t } from '../../../../i18n.js';
 
 export function bootSoloDashboard(profile) {
   // Sidebar: оставляем только Главную + Профиль. Скрываем всё что
@@ -32,7 +33,14 @@ export function bootSoloDashboard(profile) {
   if (homeBtn) {
     homeBtn.dataset.tab = 'solo-home';
     const span = homeBtn.querySelector('span');
-    if (span) span.textContent = 'Главная';
+    // Меняем И data-i18n, И textContent (как relabelMembers у employee):
+    // applyTranslations() — DOM-walker по data-i18n — иначе перетёр бы
+    // хардкод-текст обратно на nav.dashboard ("Обзор"/"Overview") при
+    // любом переключении языка, а на EN-локали лейбл был бы по-русски.
+    if (span) {
+      span.setAttribute('data-i18n', 'nav.home');
+      span.textContent = t('nav.home');
+    }
   }
 
   // Скрываем все остальные tab-panel'ы — solo home единственный visible.

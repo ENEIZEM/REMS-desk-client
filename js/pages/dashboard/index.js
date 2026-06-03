@@ -22,8 +22,6 @@ import {
   loadNotificationCount,
   addNotification,
   rerender as rerenderNotifications,
-  resolveTitle as resolveNotifTitle,
-  resolveBody  as resolveNotifBody,
 } from './notifications.js';
 import {
   openModal,
@@ -415,7 +413,13 @@ async function loadProfile() {
           if (homeBtn) {
             homeBtn.dataset.tab = 'overview';
             const span = homeBtn.querySelector('span');
-            if (span) span.textContent = t('nav.dashboard') || 'Обзор';
+            // Возвращаем И data-i18n (solo выставлял 'nav.home'), И текст —
+            // иначе applyTranslations() позже вернул бы лейбл "Главная/Home"
+            // на не-solo дашборде.
+            if (span) {
+              span.setAttribute('data-i18n', 'nav.dashboard');
+              span.textContent = t('nav.dashboard') || 'Обзор';
+            }
           }
         }
         applyRoleAttributes(detectedRole, user.membership_status);
@@ -1059,10 +1063,17 @@ async function initSocketConn() {
         Number(payload.recipientId) !== Number(_userProfile.id)
       ) return;
 
+      // addNotification() уже показывает богатый notify-toast (иконка +
+      // заголовок + тело + действия) и проигрывает звук. Отдельный простой
+      // toast(text,'info') здесь дублировал бы попап на каждое событие —
+      // убран. Простые toast'ы остаются там, где они единственные (например
+      // «отметить все прочитанными»).
       addNotification(payload);
-      const text = resolveNotifBody(payload) || resolveNotifTitle(payload) || t('notifications.title');
-      toast(text, 'info');
       const subAction = payload?.data?.action;
+      // Контракт-события → освежаем вкладку «Партнёры»/«Контракты», если открыта.
+      if (String(subAction ?? '').startsWith('contract')) {
+        window.dispatchEvent(new CustomEvent('rems:reload-contracts'));
+      }
       const rawMsg    = String(payload?.message_text ?? payload?.messageText ?? '');
       const isInvitedByOrg = payload?.type === 'join_request' &&
         (subAction === 'invited_by_org' || rawMsg.includes('invited_by_org'));
