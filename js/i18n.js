@@ -99,6 +99,10 @@ export async function setLang(lang) {
   _data = await fetchLang(lang);
   _lang = lang;
   localStorage.setItem(LS_LANG, lang);
+  // Синхронизируем <html lang> — от него зависит локаль НАТИВНЫХ виджетов
+  // (формат и плейсхолдер <input type="date">, календарь-пикер). Без этого
+  // дата в модалках оставалась в исходной локали при переключении языка.
+  try { document.documentElement.lang = lang; } catch {}
 
   applyTranslations();
   _updateSwitcher();
@@ -111,6 +115,7 @@ export async function setLang(lang) {
  */
 export async function initI18n() {
   _data = await fetchLang(_lang);
+  try { document.documentElement.lang = _lang; } catch {}
   applyTranslations();
   _updateSwitcher();
 
@@ -142,6 +147,13 @@ export function applyTranslations() {
   });
   document.querySelectorAll('[data-i18n-aria]').forEach(el => {
     el.setAttribute('aria-label', t(el.getAttribute('data-i18n-aria')));
+  });
+  // data-tooltip-key → data-tooltip-text (CSS .profile-card-tooltip::after
+  // читает data-tooltip-text). Делаем здесь, чтобы подсказки в динамически
+  // перерисованных блоках (team/equipment/contracts, ре-маунты) получали
+  // текст и единый стиль, а не только при первой загрузке профиля.
+  document.querySelectorAll('[data-tooltip-key]').forEach(el => {
+    el.setAttribute('data-tooltip-text', t(el.getAttribute('data-tooltip-key')));
   });
 }
 

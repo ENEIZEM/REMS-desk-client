@@ -12,9 +12,12 @@
    контексту.
    ═══════════════════════════════════════════════════════════════ */
 
-import { t, applyTranslations } from '../../../../i18n.js';
+import { t, applyTranslations, onLangChange } from '../../../../i18n.js';
 import { members as membersApi } from '../../../../api.js';
 import { setAvatar } from '../../format.js';
+import { mountEquipment } from '../_shared/equipment.js';
+
+let _empLangBound = false;
 
 export function mountEmployeeTeam(profile) {
   const tabPanel = document.querySelector('#tab-members');
@@ -29,9 +32,16 @@ export function mountEmployeeTeam(profile) {
   // не нужна — у него есть свой #btn-invite в page-header, но он
   // hidden для employee.
   tabPanel.innerHTML = `
-    <div class="page-header">
-      <h1 class="page-title" data-i18n="nav.colleagues">Коллеги</h1>
-      <p class="page-desc" data-i18n="team.desc">Сотрудники вашей организации и закреплённая за ней техника.</p>
+    <div class="page-header page-header--with-action">
+      <div>
+        <h1 class="page-title" data-i18n="nav.colleagues">Коллеги</h1>
+        <p class="page-desc" data-i18n="team.desc">Сотрудники вашей организации и закреплённая за ней техника.</p>
+      </div>
+      <div class="page-header-actions">
+        <button class="btn btn-primary" id="btn-equipment-add">
+          <i class="ph ph-plus"></i> <span data-i18n="equipment.add_btn">Добавить технику</span>
+        </button>
+      </div>
     </div>
 
     <div class="profile-two-col" style="margin-top:1rem;">
@@ -61,14 +71,19 @@ export function mountEmployeeTeam(profile) {
           <div class="profile-card-header profile-card-header--with-actions">
             <div class="profile-card-icon teal"><i class="ph-bold ph-desktop-tower"></i></div>
             <h3 class="profile-card-title" data-i18n="team.equipment_title">Техника</h3>
+            <div class="equipment-search-wrap">
+              <i class="ph ph-magnifying-glass"></i>
+              <input id="equipment-search" type="search" class="form-input" data-i18n-ph="equipment.search_ph" placeholder="Поиск по технике…">
+            </div>
+            <span id="team-equipment-count" class="badge badge-default" style="margin-left:.4rem;"></span>
             <span class="profile-card-tooltip profile-card-tooltip--end" tabindex="0" data-tooltip-key="team.equipment_hint">
               <i class="ph ph-info"></i>
             </span>
           </div>
-          <div class="profile-card-body requests-feed-body">
+          <div class="profile-card-body requests-feed-body equipment-list" id="team-equipment-body">
             <div class="empty-state empty-state--inline">
               <i class="ph ph-desktop-tower"></i>
-              <span class="empty-state-text" data-i18n="team.equipment_empty">Список оборудования появится здесь, когда руководитель его заведёт.</span>
+              <span class="empty-state-text" data-i18n="team.colleagues_loading">Загрузка…</span>
             </div>
           </div>
         </div>
@@ -77,6 +92,18 @@ export function mountEmployeeTeam(profile) {
   `;
 
   applyTranslations();
+  mountEquipment(profile);
+
+  // Перерисовка коллег при смене языка (роли в строках иначе остаются
+  // на старом языке).
+  if (!_empLangBound) {
+    _empLangBound = true;
+    onLangChange(() => {
+      if (document.body.dataset.role === 'employee' && document.querySelector('#team-colleagues-body')) {
+        loadColleagues();
+      }
+    });
+  }
 
   // Подгружаем коллег. Скрываем сервисные блоки (pending-section,
   // approved-section) — мы их полностью заменили своей разметкой.

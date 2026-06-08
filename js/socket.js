@@ -64,6 +64,16 @@ export async function connectSocket() {
     _emit('org:notification', payload);
   });
 
+  // Live-синхронизация реестра техники (см. emitEquipmentChange на бэке).
+  _socket.on('equipment:changed', (payload) => {
+    _emit('equipment:changed', payload);
+  });
+
+  // Live-синхронизация ленты заявок.
+  _socket.on('requests:changed', (payload) => {
+    _emit('requests:changed', payload);
+  });
+
   _socket.on('connect_error', (err) => {
     // DEVICE_MISMATCH / SESSION_REVOKED → force logout
     if (['DEVICE_MISMATCH', 'SESSION_REVOKED', 'SESSION_EXPIRED'].includes(err.message)) {

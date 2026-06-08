@@ -57,6 +57,7 @@ async function loadContracts() {
     _current = data.current || [];
     _terminated = data.terminated || [];
     list.innerHTML = contractsBlocksHTML(data, false);  // read-only
+    applyTranslations();   // инжектит data-tooltip-text в подсказки блоков
   } catch (err) {
     toast(errorMessage(err), 'error');
   }

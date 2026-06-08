@@ -12,6 +12,12 @@ import { profile }                from '../../api.js';
 import { errorMessage, toast }    from '../../auth.js';
 import { t, getLang }             from '../../i18n.js';
 import { attachLoader }           from '../../lib/lazy-loader.js';
+import { openModal, closeModal, setLoading } from './ui-helpers.js';
+
+// Завершать ЧУЖИЕ сессии можно только из достаточно «взрослой» текущей
+// сессии — защита: угнавший свежий доступ не вышибет настоящего владельца
+// сразу. Кнопка отзыва появляется лишь когда текущей сессии ≥ 5 дней.
+const REVOKE_MIN_AGE_DAYS = 5;
 
 function osIcon(os) {
   if (!os) return 'ph-monitor';
@@ -87,7 +93,13 @@ export async function loadSessions() {
       return;
     }
 
-    listEl.innerHTML = sessions.map(s => sessionRowHTML(s)).join('');
+    // Возраст текущей сессии — от него зависит, показывать ли кнопки
+    // отзыва чужих сессий.
+    const current = sessions.find(s => s.is_current);
+    const currentAgeDays = current ? (Date.now() - new Date(current.created_at).getTime()) / 86400000 : 0;
+    const canRevoke = currentAgeDays >= REVOKE_MIN_AGE_DAYS;
+
+    listEl.innerHTML = sessions.map(s => sessionRowHTML(s, canRevoke)).join('');
     // Bind revoke handlers after render so the DOM exists.
     listEl.querySelectorAll('[data-action="revoke-session"]').forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -112,7 +124,7 @@ export async function loadSessions() {
  * makes it clear the OTHER device's session is being terminated, not
  * this one.
  */
-function sessionRowHTML(s) {
+function sessionRowHTML(s, canRevoke = false) {
   const left  = formatRemaining(s.token_expires_at);
   const color = tokenColorByDaysLeft(left.days + left.hours / 24);
   const pct   = Math.max(2, Math.min(100, ((left.days * 24 + left.hours) / (30 * 24)) * 100));
@@ -139,11 +151,11 @@ function sessionRowHTML(s) {
   // Кнопка отзыва — только на не-текущих сессиях. Текущую юзер закрывает
   // через обычный logout (чистит токен в localStorage). Иконка sign-out
   // + tooltip с текстом, чтобы понять что произойдёт.
-  const revokeBtn = s.is_current ? '' : `
+  const revokeBtn = (s.is_current || !canRevoke) ? '' : `
     <button class="session-revoke-btn"
             data-action="revoke-session"
             data-session-id="${s.id}"
-            title="${t('profile.session_revoke')}"
+            data-ct-tip="${t('profile.session_revoke')}"
             aria-label="${t('profile.session_revoke')}">
       <i class="ph-bold ph-sign-out"></i>
     </button>`;
@@ -173,28 +185,37 @@ function sessionRowHTML(s) {
   `;
 }
 
-async function revokeSession(id) {
-  // Confirm — простой нативный confirm. На уровне UX согласован с другими
-  // destructive-операциями в проекте (например, кнопка удалить участника).
-  if (!window.confirm(t('profile.session_revoke_confirm'))) return;
-  // Optimistic: убираем строку сразу, ставим pending state. Если 4xx/5xx —
-  // перерендериваем весь список с актуальными данными.
-  const row = document.querySelector(`.profile-row[data-session-id="${id}"]`);
-  if (row) {
-    row.style.opacity = '0.4';
-    row.style.pointerEvents = 'none';
-  }
+// Подтверждение через модалку (#session-revoke-modal) вместо нативного
+// confirm. Кнопку подтверждения вешаем один раз.
+let _pendingRevokeId = null;
+let _revokeWired = false;
+
+function revokeSession(id) {
+  _pendingRevokeId = id;
+  wireRevokeModalOnce();
+  openModal('session-revoke-modal');
+}
+
+function wireRevokeModalOnce() {
+  if (_revokeWired) return;
+  _revokeWired = true;
+  document.querySelector('#btn-session-revoke-confirm')?.addEventListener('click', doRevoke);
+}
+
+async function doRevoke() {
+  const id = _pendingRevokeId;
+  if (!id) return;
+  const btn = document.querySelector('#btn-session-revoke-confirm');
+  setLoading(btn, true);
   try {
     await profile.revokeSession(id);
-    // Полный rerender, чтобы счётчик в шапке (#sessions-count) тоже
-    // обновился, и удалённая сессия точно исчезла из DOM.
-    await loadSessions();
+    closeModal('session-revoke-modal');
+    await loadSessions();   // обновит и счётчик #sessions-count
     toast(t('profile.session_revoked_toast'), 'ok');
   } catch (err) {
-    if (row) {
-      row.style.opacity = '';
-      row.style.pointerEvents = '';
-    }
     toast(errorMessage(err), 'error');
+  } finally {
+    setLoading(btn, false);
+    _pendingRevokeId = null;
   }
 }

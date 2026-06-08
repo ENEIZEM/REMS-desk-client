@@ -39,6 +39,18 @@ export function renderProfileTab(user, role, isOwner, ownerOrgCreatedAt) {
     }
   }
 
+  // Admin-плашка — рядом с ролью в орге. Показываем, если юзер числится
+  // в системе как sys_admin (global_role). indigo-тон + корона.
+  const adminEl = document.querySelector('#profile-admin-badge');
+  if (adminEl) {
+    if (user.global_role === 'sys_admin') {
+      adminEl.style.display = '';
+      renderIconBadge(adminEl, roleBadgeDescriptor('sys_admin'));
+    } else {
+      adminEl.style.display = 'none';
+    }
+  }
+
   // ── LEFT card: Личные данные ───────────────────────────────
   document.querySelector('#info-fullname').textContent = user.full_name  || '—';
   document.querySelector('#info-dept').textContent     = user.department || '—';

@@ -41,6 +41,7 @@ import { fmtDate, setAvatar, initials, roleLabel } from './format.js';
 import { renderProfileTab }     from './tabs/profile.js';
 import { populateOrgTab }       from './tabs/organization.js';
 import { attachLoader }         from '../../lib/lazy-loader.js';
+import '../../lib/char-counter.js';   // авто-счётчики символов в модалках
 import { hidePageLoader }       from '../../lib/page-loader.js';
 import { consumePinPass }       from '../../lib/pin-gate.js';
 import { requirePinUnlock }     from './pin-lock.js';
@@ -110,6 +111,11 @@ function switchTab(name, { updateHash = true } = {}) {
 document.querySelectorAll('.nav-item[data-tab]').forEach(btn => {
   btn.addEventListener('click', () => switchTab(btn.dataset.tab));
 });
+// «Это вы» в списке коллег — клик ведёт на вкладку профиля. Делегировано
+// на document, т.к. строки коллег пересоздаются при ре-рендере.
+document.addEventListener('click', (e) => {
+  if (e.target.closest?.('.members-row-self')) switchTab('profile');
+});
 document.querySelectorAll('[data-tab-trigger]').forEach(btn => {
   btn.addEventListener('click', () => switchTab(btn.dataset.tabTrigger));
 });
@@ -138,7 +144,14 @@ function applyHashTab() {
   if (tab && TAB_IDS.includes(tab)) {
     const panel = document.getElementById(`tab-${tab}`);
     const navItem = document.querySelector(`.nav-item[data-tab="${tab}"]`);
-    const panelHidden = panel && getComputedStyle(panel).display === 'none' && !panel.classList.contains('active');
+    // ВАЖНО: НЕ опираемся на computed display панели — у любой неактивной
+    // tab-panel display:none (см. .tab-panel{} в style.css), поэтому
+    // переход по hash на ещё-не-активную вкладку ложно считался «скрытой
+    // для роли» и сбрасывал на overview (баг: клик по уведомлению о
+    // контракте не открывал «Партнёров»). Роль-недоступность определяем
+    // по классу .hidden (его ставит hide() в role-helpers) и по скрытому
+    // nav-item.
+    const panelHidden = panel && panel.classList.contains('hidden');
     const navHidden = navItem && getComputedStyle(navItem).display === 'none';
     if (panelHidden || navHidden) {
       switchTab(role === 'solo' ? 'solo-home' : 'overview', { updateHash: false });
@@ -523,7 +536,7 @@ async function loadProfile() {
     q('#no-org-notice')?.classList.toggle('hidden', hasOrg);
 
     // ── Populate the «Ваша организация» tab ────────────────────
-    if (hasOrg && org) populateOrgTab(org, role, canEditOrg, canEditLim);
+    if (hasOrg && org) populateOrgTab(org, role, canEditOrg, canEditLim, user.global_role === 'sys_admin');
 
     // ── Tooltip text injection (CSS reads data-tooltip-text) ───
     document.querySelectorAll('[data-tooltip-key]').forEach(el => {
@@ -727,7 +740,7 @@ function memberRowHTML(m, opts = {}) {
   // выровнены вертикально. Из имени убран.
   const selfBadge = '';
   const selfChipRight = (isSelf && !isPending)
-    ? `<span class="members-row-self" title="${t('members.you')}">${t('members.you')}</span>`
+    ? `<span class="members-row-self" data-ct-tip="${t('members.you')}" aria-label="${t('members.you')}"><i class="ph-bold ph-user"></i></span>`
     : '';
 
   // Stats pills — only meaningful on approved rows; pending users
@@ -767,7 +780,7 @@ function memberRowHTML(m, opts = {}) {
         ${selfChipRight ? selfChipRight : ''}
         ${canRemove ? `
           <button class="members-row-delete btn-remove" data-id="${m.id}" data-name="${escapeHTML(m.full_name)}"
-                  title="${t('members.remove')}" aria-label="${t('members.remove')}">
+                  data-ct-tip="${t('members.remove')}" aria-label="${t('members.remove')}">
             <i class="ph-bold ph-trash"></i>
           </button>` : ''}
       </div>`;
@@ -1008,6 +1021,11 @@ q('#btn-invite-confirm')?.addEventListener('click', async () => {
     if (q('#invite-contact')) q('#invite-contact').value = '';
     if (_inviteMsgEl) _inviteMsgEl.value = '';
     if (_inviteMsgCnt) _inviteMsgCnt.textContent = '0';
+    // Обновляем списки: legacy members tab И owner «Ресурсы» (team.js
+    // слушает rems:reload-members). Так новый инвайт/приглашённый
+    // сотрудник появляется сразу, без перезагрузки страницы.
+    loadMembers().catch(() => {});
+    window.dispatchEvent(new CustomEvent('rems:reload-members'));
   } catch (err) {
     const errEl = q('#err-invite');
     if (errEl)  { errEl.classList.remove('hidden'); errEl.classList.add('show'); }
@@ -1170,6 +1188,12 @@ onLangChange(() => {
   // translation update on lang switch without re-opening the tab.
   if (currentTab === 'members') loadMembers().catch(() => {});
   rerenderNotifications();
+  // Inline-ошибки под полями и alert-баннеры заполняются переведённым
+  // текстом в момент валидации и сами по себе не переводятся. На смене
+  // языка прячем их (стале-текст на старом языке) — при следующей
+  // валидации они появятся уже на новом языке.
+  document.querySelectorAll('.form-error.show').forEach(el => el.classList.remove('show'));
+  document.querySelectorAll('.alert.show:not(.hidden)').forEach(el => { el.classList.remove('show'); el.classList.add('hidden'); });
 });
 
 // ─────────────────────────────────────────────────────────────────

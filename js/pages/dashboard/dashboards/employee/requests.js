@@ -14,6 +14,14 @@
 import { t, applyTranslations, onLangChange } from '../../../../i18n.js';
 import { fmtBytes } from '../../format.js';
 import { renderRowChip } from '../../badges.js';
+import { mountRequests, renderAll as renderRequests } from '../_shared/requests.js';
+
+// Тип-фильтр вкладки → фильтр общего модуля заявок.
+function mapType(type) {
+  if (type === 'free') return 'free';
+  if (type === 'created' || type === 'closed') return 'mine';
+  return 'all';
+}
 
 export function mountEmployeeRequests(profile) {
   const slot = document.querySelector('#employee-requests-slot');
@@ -46,9 +54,14 @@ export function mountEmployeeRequests(profile) {
   let activePeriod = localStorage.getItem(periodKey) || 'month';
 
   slot.innerHTML = `
-    <div class="page-header">
-      <h1 class="page-title" data-i18n="employee.requests_title">Заявки</h1>
-      <p class="page-desc" data-i18n="employee.requests_desc">Внутренние и партнёрские заявки. Фильтры применяются к видимому списку.</p>
+    <div class="page-header page-header--with-action">
+      <div>
+        <h1 class="page-title" data-i18n="employee.requests_title">Заявки</h1>
+        <p class="page-desc" data-i18n="employee.requests_desc">Внутренние и партнёрские заявки. Фильтры применяются к видимому списку.</p>
+      </div>
+      <button class="btn btn-primary" data-rq-create>
+        <i class="ph ph-plus"></i> <span data-i18n="requests.create_btn">Создать заявку</span>
+      </button>
     </div>
 
     <!-- Шапка заявок: profile-card паттерн (как SLA/Лимиты) -->
@@ -66,9 +79,8 @@ export function mountEmployeeRequests(profile) {
           </span>
         </div>
       </div>
-      <div class="profile-card-body requests-feed-body" id="employee-requests-body">
-        ${renderRequestsEmpty(activeType, activeScope, activePeriod)}
-      </div>
+      <div class="profile-card-body requests-feed-body" id="employee-requests-body"
+           data-requests-list data-rq-filter="${mapType(activeType)}"></div>
     </div>
 
     <div class="profile-two-col employee-two-col" style="margin-top:1rem;">
@@ -118,7 +130,7 @@ export function mountEmployeeRequests(profile) {
   // Pickers.
   const reRender = () => {
     const body = slot.querySelector('#employee-requests-body');
-    if (body) body.innerHTML = renderRequestsEmpty(activeType, activeScope, activePeriod);
+    if (body) { body.dataset.rqFilter = mapType(activeType); renderRequests(); }
   };
   wirePopoverPicker(slot, '[data-req-scope-picker]', (id) => {
     activeScope = id;
@@ -138,6 +150,9 @@ export function mountEmployeeRequests(profile) {
 
   // Перевод свежевставленного HTML.
   applyTranslations();
+
+  // Заявки: лента + дорожная карта (общий модуль).
+  mountRequests(profile).catch(err => console.warn('[employee requests]', err));
 
   // Re-render на смену языка: перерисуем динамические куски (лимиты
   // с template-литералами, picker active-label, body).

@@ -41,22 +41,24 @@ function ensureMarkup() {
   m.innerHTML = `
     <div class="modal" style="max-width:680px;">
       <div class="modal-header">
-        <div class="modal-card-icon"><i class="ph-bold ph-file"></i></div>
+        <div class="modal-card-icon"><i class="ph-bold ph-paperclip"></i></div>
         <div class="modal-header-text">
-          <h3 class="modal-title" data-i18n="contracts.doc_preview_title">Предпросмотр документа</h3>
-          <p class="modal-subtitle" id="${MODAL_ID}-meta">—</p>
+          <h3 class="modal-title" id="${MODAL_ID}-title" data-i18n="contracts.doc_preview_title">Предпросмотр документа</h3>
+          <p class="modal-subtitle" id="${MODAL_ID}-hint" style="display:none;"></p>
         </div>
         <button class="modal-close" type="button" id="${MODAL_ID}-close"><i class="ph ph-x"></i></button>
       </div>
       <div class="modal-body" style="text-align:center;">
+        <p class="form-hint" id="${MODAL_ID}-limits" style="margin:0 0 .75rem; font-size:var(--text-xs); color:var(--clr-text-muted);"></p>
         <div class="media-preview-frame doc-preview-frame">
           <img id="${MODAL_ID}-img" alt="" style="display:none; max-width:100%; max-height:60vh;">
-          <iframe id="${MODAL_ID}-pdf" style="display:none; width:100%; height:60vh; border:0;"></iframe>
+          <iframe id="${MODAL_ID}-pdf" title="pdf" style="display:none; width:100%; height:60vh; border:0;"></iframe>
           <div id="${MODAL_ID}-fallback" class="contract-doc-fallback hidden">
             <i class="ph-duotone ph-file-text" style="font-size:3rem; color:var(--clr-text-muted);"></i>
             <p style="margin:.5rem 0 0; color:var(--clr-text-muted);" id="${MODAL_ID}-fallback-text">—</p>
           </div>
         </div>
+        <p id="${MODAL_ID}-meta" style="margin-top:.6rem; font-size:var(--text-xs); color:var(--clr-text-muted);">—</p>
         <div class="alert alert-error" id="${MODAL_ID}-err"><i class="ph ph-warning-circle"></i><span id="${MODAL_ID}-err-text"></span></div>
       </div>
       <div class="modal-footer">
@@ -98,11 +100,22 @@ export function wireDocPreview({
   entityType,
   allowedMime = ['application/pdf','image/jpeg','image/png','image/webp','image/jpg'],
   maxBytes = 15 * 1024 * 1024,
+  titleKey, hintKey,
   onSave, onCancel,
 } = {}) {
   ensureMarkup();
   wireShared();
   const inp = document.getElementById(INPUT_ID);
+
+  // Человекочитаемая строка ограничений: «До 15 MB · JPG · PNG · WEBP · PDF».
+  function limitsText() {
+    const types = [...new Set(allowedMime.map(m => {
+      if (m === 'application/pdf') return 'PDF';
+      return (m.split('/')[1] || '').toUpperCase().replace('JPEG', 'JPG');
+    }).filter(Boolean))].join(' · ');
+    const sizeTmpl = t('profile.media_limits_hint') || 'До {size} · {types}';
+    return sizeTmpl.replace('{size}', `${(maxBytes / 1024 / 1024).toFixed(0)} MB`).replace('{types}', types);
+  }
 
   let _file = null;
   let _objUrl = null;
@@ -136,6 +149,16 @@ export function wireDocPreview({
     const fb  = document.getElementById(`${MODAL_ID}-fallback`);
     const meta = document.getElementById(`${MODAL_ID}-meta`);
     const fbText = document.getElementById(`${MODAL_ID}-fallback-text`);
+    // Заголовок / подсказка / ограничения (как у медиа-аттача аватара/лого).
+    const titleEl = document.getElementById(`${MODAL_ID}-title`);
+    if (titleEl && titleKey) { titleEl.setAttribute('data-i18n', titleKey); titleEl.textContent = t(titleKey); }
+    const hintEl = document.getElementById(`${MODAL_ID}-hint`);
+    if (hintEl) {
+      if (hintKey) { hintEl.setAttribute('data-i18n', hintKey); hintEl.textContent = t(hintKey); hintEl.style.display = ''; }
+      else { hintEl.textContent = ''; hintEl.style.display = 'none'; }
+    }
+    const limEl = document.getElementById(`${MODAL_ID}-limits`);
+    if (limEl) limEl.textContent = limitsText();
     if (img) { img.style.display = 'none'; img.src = ''; }
     if (pdf) { pdf.style.display = 'none'; pdf.src = ''; }
     fb?.classList.add('hidden');

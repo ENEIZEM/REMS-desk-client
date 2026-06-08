@@ -421,6 +421,71 @@ export const media = {
     // Освобождаем blob чуть позже — браузер уже взял ссылку.
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
   },
+
+  /**
+   * Загрузить приватный медиафайл и вернуть object-URL для <img src>.
+   * Нужен для фото техники: эндпоинт требует Bearer, поэтому обычный
+   * <img src=".../file"> получил бы 401. Вызывающий код сам revokeObjectURL.
+   */
+  loadPrivateImage: async (mediaFileId) => {
+    const token = localStorage.getItem('rems_token');
+    const did   = await getDeviceId();
+    const headers = { 'X-Device-Id': did };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch(`${API_BASE}/upload/${mediaFileId}/file`, { headers });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const blob = await res.blob();
+    return URL.createObjectURL(blob);
+  },
+
+  /**
+   * Загрузить приватный медиафайл и вернуть { blob, url } — нужно для
+   * универсального просмотрщика вложений (детект типа image/pdf + скачивание
+   * того же blob без повторного запроса).
+   */
+  loadPrivateBlob: async (mediaFileId) => {
+    const token = localStorage.getItem('rems_token');
+    const did   = await getDeviceId();
+    const headers = { 'X-Device-Id': did };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch(`${API_BASE}/upload/${mediaFileId}/file`, { headers });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const blob = await res.blob();
+    return { blob, url: URL.createObjectURL(blob) };
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────
+// EQUIPMENT  →  /api/equipment/*
+// GET    /api/equipment/categories  — общий справочник категорий
+// GET    /api/equipment             — реестр техники организации
+// POST   /api/equipment             — добавить
+// PATCH  /api/equipment/:id         — редактировать
+// DELETE /api/equipment/:id         — удалить
+// ─────────────────────────────────────────────────────────────────
+export const equipment = {
+  categories: () => request('GET', '/equipment/categories'),
+  list:       () => request('GET', '/equipment'),
+  create:     (payload)     => request('POST',  '/equipment', payload),
+  update:     (id, payload) => request('PATCH', `/equipment/${id}`, payload),
+  remove:     (id)          => request('DELETE', `/equipment/${id}`),
+};
+
+// ─────────────────────────────────────────────────────────────────
+// REQUESTS  →  /api/requests/*
+// GET    /api/requests           — список заявок моей орг
+// POST   /api/requests           — создать
+// GET    /api/requests/:id        — детально (история + вложения)
+// PATCH  /api/requests/:id        — редактировать (автор, пока new)
+// PATCH  /api/requests/:id/status — переход (take/start/finish/close/cancel)
+// ─────────────────────────────────────────────────────────────────
+export const requests = {
+  list:   ()           => request('GET', '/requests'),
+  get:    (id)         => request('GET', `/requests/${id}`),
+  create: (payload)    => request('POST', '/requests', payload),
+  update: (id, payload) => request('PATCH', `/requests/${id}`, payload),
+  /** action: take|start|finish|close|cancel; extra: { resolution_text?, rating?, rating_comment?, comment?, attachment_media_ids? } */
+  status: (id, action, extra = {}) => request('PATCH', `/requests/${id}/status`, { action, ...extra }),
 };
 
 // ─────────────────────────────────────────────────────────────────

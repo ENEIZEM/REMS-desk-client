@@ -5,23 +5,19 @@
 import { t } from '../../../../i18n.js';
 import { media } from '../../../../api.js';
 import { toast, errorMessage } from '../../../../auth.js';
+import { openMediaViewer } from '../../../../lib/media-viewer.js';
 
 // Глобальный делегированный клик по «Открыть документ» — общий для
-// owner/employee. Файл лежит в приватной папке и эндпоинт требует
-// Bearer-токен, поэтому fetch'им через api.media.openPrivate (auth+blob),
-// а не вешаем <a href>. Once-wired на window.
+// owner/employee. Открываем в общем просмотрщике вложений (с кнопкой
+// «Скачать»), а не в новой вкладке. Once-wired на window.
 if (typeof window !== 'undefined' && !window.__remsContractDocOpenWired) {
   window.__remsContractDocOpenWired = true;
-  document.addEventListener('click', async (e) => {
+  document.addEventListener('click', (e) => {
     const btn = e.target.closest?.('[data-ct-doc-id]');
     if (!btn) return;
     e.preventDefault();
     const id = Number(btn.dataset.ctDocId);
-    if (!id) return;
-    btn.classList.add('btn-loading');
-    try { await media.openPrivate(id); }
-    catch (err) { toast(errorMessage(err), 'error'); }
-    finally { btn.classList.remove('btn-loading'); }
+    if (id) openMediaViewer(id, { name: `contract-doc-${id}` });
   });
 }
 
@@ -263,17 +259,23 @@ export function contractsBlocksHTML(data, canManage) {
 
   return `
     <div class="card profile-card">
-      <div class="profile-card-header">
+      <div class="profile-card-header profile-card-header--with-actions">
         <div class="profile-card-icon navy"><i class="ph-bold ph-handshake"></i></div>
         <h3 class="profile-card-title">${escapeHTML(t('contracts.current_block'))}</h3>
+        <span class="profile-card-tooltip profile-card-tooltip--end" tabindex="0" data-tooltip-key="contracts.current_hint">
+          <i class="ph ph-info"></i>
+        </span>
       </div>
       <div class="profile-card-body contract-list">${currentBody}</div>
     </div>
 
     <div class="card profile-card" style="margin-top:1rem;">
-      <div class="profile-card-header">
+      <div class="profile-card-header profile-card-header--with-actions">
         <div class="profile-card-icon slate"><i class="ph-bold ph-archive"></i></div>
         <h3 class="profile-card-title">${escapeHTML(t('contracts.terminated_block'))}</h3>
+        <span class="profile-card-tooltip profile-card-tooltip--end" tabindex="0" data-tooltip-key="contracts.terminated_hint">
+          <i class="ph ph-info"></i>
+        </span>
       </div>
       <div class="profile-card-body contract-list">${terminatedBody}</div>
     </div>`;

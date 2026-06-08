@@ -17,6 +17,7 @@ import { setNotificationsTarget, loadNotifications } from '../../notifications.j
 import { setAvatar } from '../../format.js';
 import { roleBadgeDescriptor, orgStatusBadge, renderIconBadge } from '../../badges.js';
 import { openModal, closeModal, setLoading } from '../../ui-helpers.js';
+import { mountRequests, renderAll as renderRequests } from '../_shared/requests.js';
 
 export function mountEmployeeOverview(profile) {
   const slot = document.querySelector('#employee-overview-slot');
@@ -64,9 +65,8 @@ export function mountEmployeeOverview(profile) {
           </span>
         </div>
       </div>
-      <div class="profile-card-body requests-feed-body" id="employee-overview-requests-body">
-        ${renderRequestsEmpty(activeReqFilter)}
-      </div>
+      <div class="profile-card-body requests-feed-body" id="employee-overview-requests-body"
+           data-requests-list data-rq-filter="${activeReqFilter}"></div>
     </div>
 
     <div class="profile-two-col employee-two-col" style="margin-top:1rem;">
@@ -130,6 +130,9 @@ export function mountEmployeeOverview(profile) {
   setNotificationsTarget('#employee-notifs-slot');
   loadNotifications().catch(err => console.warn('[employee overview notifications]', err));
 
+  // Заявки: загрузка ленты + кнопка «Создать» + дорожная карта (общий модуль).
+  mountRequests(profile).catch(err => console.warn('[employee overview requests]', err));
+
   // Re-render на смену языка: пересоберём dynamic-куски (stats rows,
   // picker label), т.к. они построены через template literal с t()
   // и не имеют data-i18n.
@@ -169,7 +172,7 @@ export function mountEmployeeOverview(profile) {
       b.classList.toggle('is-active', b.getAttribute('data-req-filter') === next);
     });
     const body = slot.querySelector('#employee-overview-requests-body');
-    if (body) body.innerHTML = renderRequestsEmpty(activeReqFilter);
+    if (body) { body.dataset.rqFilter = next; renderRequests(); }
   });
 
   // Leave-org confirm.

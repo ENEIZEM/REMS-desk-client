@@ -6,7 +6,7 @@
 
 import { t } from '../../../i18n.js';
 import {
-  orgStatusBadge, roleBadgeDescriptor,
+  orgStatusBadge, roleBadgeDescriptor, siteAdminOrgDescriptor,
   renderIconBadge, renderRowChip,
 } from '../badges.js';
 import { fmtDate, fmtBytes, initials, setAvatar } from '../format.js';
@@ -22,7 +22,7 @@ function setFeaturePill(el, allowed) {
   renderRowChip(el, desc);
 }
 
-export function populateOrgTab(org, role, canEditOrg, canEditLim) {
+export function populateOrgTab(org, role, canEditOrg, canEditLim, isSiteAdmin = false) {
   // ── Header strip ────────────────────────────────────────────
   document.querySelector('#org-head-name').textContent = org.name || '—';
   document.querySelector('#org-head-id').textContent   = `#${org.id}`;
@@ -33,6 +33,18 @@ export function populateOrgTab(org, role, canEditOrg, canEditLim) {
   // org_type badge intentionally not rendered — see badges.js comment.
   renderIconBadge(document.querySelector('#org-head-active'), orgStatusBadge(org.is_active));
   renderIconBadge(document.querySelector('#org-head-myrole'), roleBadgeDescriptor(role));
+
+  // «Администрация сайта» — если организация принадлежит sys_admin'у
+  // (передаётся из loadProfile по global_role текущего пользователя).
+  const orgAdminEl = document.querySelector('#org-head-admin');
+  if (orgAdminEl) {
+    if (isSiteAdmin) {
+      orgAdminEl.style.display = '';
+      renderIconBadge(orgAdminEl, siteAdminOrgDescriptor());
+    } else {
+      orgAdminEl.style.display = 'none';
+    }
+  }
 
   // ── Logo ────────────────────────────────────────────────────
   // Use the same setAvatar() helper the personal avatar tile uses —

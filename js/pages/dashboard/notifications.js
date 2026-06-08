@@ -107,7 +107,12 @@ const TYPE_CONFIG = {
     color: (n) => contractColor(n) || 'blue',
     tab: (n) => {
       const action = String(n?.data?.action ?? '');
-      if (action.startsWith('contract')) return 'contracts';
+      // После reload на немигрированной БД data.action может отсутствовать,
+      // но message_text всё ещё несёт маркер `i18n:notifications.bodies.
+      // contract_*`. Проверяем оба источника — иначе клик по контракт-
+      // уведомлению уводил на requests→overview вместо «Партнёров».
+      const raw = String(n?.message_text ?? n?.messageText ?? '');
+      if (action.startsWith('contract') || raw.includes('contract')) return 'contracts';
       return n.request_id ? `requests/${n.request_id}` : 'requests';
     },
   },
@@ -384,21 +389,13 @@ function showNotifToast(notif) {
     </div>
     ${mode === 'owner_decide' ? actionsHTML : ''}`;
 
-  // Клик по тосту — та же двухтактовая логика, что у карточки в ленте:
-  //   • если тело УСЕЧЕНО (line-clamp) и тост ещё не раскрыт → первый
-  //     клик показывает полный текст + помечает прочитанным, не переходит;
-  //   • если усечения нет ИЛИ уже раскрыто → клик переходит на связанную
-  //     вкладку (см. TYPE_CONFIG[type].tab) и закрывает тост.
+  // Клик по тосту — одинарный: помечаем прочитанным, закрываем тост и
+  // переходим на связанную вкладку (см. TYPE_CONFIG[type].tab). Полный
+  // текст показывается при наведении (CSS .notify-toast:hover …), поэтому
+  // прежней «двухтактовой» логики (раскрыть → второй клик перейти) больше
+  // нет — именно она мешала переходу с одного клика.
   // В owner_decide режиме accept/reject имеют свой stopPropagation ниже.
   el.addEventListener('click', () => {
-    const text = el.querySelector('.notify-toast-text');
-    const truncated = text && text.scrollHeight - 1 > text.clientHeight;
-    if (truncated && !el.classList.contains('is-expanded')) {
-      el.classList.add('is-expanded');
-      if (!notif.read_at) markRead(notif);
-      return;
-    }
-    // Раскрыто (или нечего раскрывать) → переходим на нужную вкладку.
     if (!notif.read_at) markRead(notif);
     removeToast(el);
     onItemClick(notif);
@@ -552,22 +549,12 @@ function bindItemHandlers(container, items) {
   container.querySelectorAll('.notification-item').forEach((el, i) => {
     const notif = items[i];
 
-    // Whole-row click — поведение зависит от того, есть ли усечённый
-    // текст. Если body обрезан line-clamp'ом — первый клик раскрывает
-    // карточку (показываем полный текст) + помечает прочитанной. Если
-    // текст уже виден целиком (или строки expanded) — клик ведёт себя
-    // как раньше: mark-read + navigate. Так юзер сначала видит весь
-    // текст, и только следующим действием переходит на связанную вкладку.
-    el.addEventListener('click', () => {
-      const body = el.querySelector('.notification-body');
-      const truncated = body && body.scrollHeight - 1 > body.clientHeight;
-      if (truncated && !el.classList.contains('is-expanded')) {
-        el.classList.add('is-expanded');
-        if (!notif.read_at) markRead(notif);
-        return;
-      }
-      onItemClick(notif);
-    });
+    // Одинарный клик = переход на связанную вкладку. Полный текст
+    // уведомления раскрывается при наведении (hover) — за это отвечает
+    // CSS-правило .notification-item:hover .notification-body, поэтому
+    // здесь больше нет «двухтактовой» логики (раскрыть → второй клик
+    // перейти): именно она создавала ощущение, что клик «не работает».
+    el.addEventListener('click', () => onItemClick(notif));
 
     // Per-action buttons. Read/unread are mutually exclusive by render,
     // so at most one is in the DOM at any time per row.
@@ -584,6 +571,7 @@ function bindItemHandlers(container, items) {
 
 function notifItemHTML(n) {
   const unread = !n.read_at;
+  const expanded = !!n._expanded;
   const cfg    = typeConfig(n);
   const title  = resolveTitle(n);
   const body   = resolveBody(n);
@@ -605,7 +593,7 @@ function notifItemHTML(n) {
     : '';
 
   return `
-    <div class="notification-item notif-tone-${cfg.color} ${unread ? 'unread' : ''}"
+    <div class="notification-item notif-tone-${cfg.color} ${unread ? 'unread' : ''}${expanded ? ' is-expanded' : ''}"
          data-id="${n.id}" data-type="${n.notification_type}" role="button" tabindex="0">
       <div class="notification-icon"><i class="ph-duotone ${cfg.icon}"></i></div>
       <div class="notification-content">
@@ -651,7 +639,10 @@ export function resolveTitle(n) {
   }
   // Контракты: status_change + data.action='contract_*'. Заголовок —
   // по конкретному действию; имя контракта подставляется в тело (body).
-  if (type === 'status_change' && action.startsWith('contract')) {
+  // action может быть undefined для не-контрактных status_change (смена
+  // статуса заявки) — приводим к строке, иначе .startsWith() кидает
+  // TypeError и ломает рендер заголовка всей карточки/тоста.
+  if (type === 'status_change' && String(action ?? '').startsWith('contract')) {
     return t(`notifications.types.${action}`);
   }
   // Owner-side join_request — дублируем имя заявителя в title.

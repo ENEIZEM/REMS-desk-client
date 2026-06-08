@@ -12,6 +12,7 @@
 import { t, applyTranslations, onLangChange } from '../../../../i18n.js';
 import { members as membersApi } from '../../../../api.js';
 import { setNotificationsTarget, loadNotifications } from '../../notifications.js';
+import { mountRequests } from '../_shared/requests.js';
 
 export function mountOwnerOverview(profile) {
   const slot = document.querySelector('#owner-overview-slot');
@@ -69,9 +70,8 @@ export function mountOwnerOverview(profile) {
           </span>
         </div>
       </div>
-      <div class="profile-card-body requests-feed-body" id="owner-overview-requests-body">
-        ${renderRequestsEmpty()}
-      </div>
+      <div class="profile-card-body requests-feed-body" id="owner-overview-requests-body"
+           data-requests-list data-rq-filter="all"></div>
     </div>
 
     <div class="profile-two-col employee-two-col" style="margin-top:1rem;">
@@ -129,6 +129,10 @@ export function mountOwnerOverview(profile) {
   applyTranslations();
   setNotificationsTarget('#employee-notifs-slot');
   loadNotifications().catch(err => console.warn('[owner overview notifications]', err));
+
+  // Заявки: лента + дорожная карта (общий модуль). Кнопка «Создать» —
+  // в page-header вкладки Обзор (data-rq-create).
+  mountRequests(profile).catch(err => console.warn('[owner overview requests]', err));
 
   // Pickers.
   wirePopoverPicker(slot, '[data-owner-scope]',         (id) => { activeScope = id; localStorage.setItem(scopeKey, id); }, SCOPE_FILTERS);

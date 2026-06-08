@@ -15,6 +15,7 @@ import {
 } from '../../ui-helpers.js';
 import { contractsBlocksHTML, escapeHTML } from '../_shared/contracts-ui.js';
 import { wireDocPreview } from '../../../../lib/doc-preview.js';
+import { openMediaViewer } from '../../../../lib/media-viewer.js';
 
 let _current = [];
 let _terminated = [];
@@ -64,6 +65,7 @@ async function loadContracts() {
     _current = data.current || [];
     _terminated = data.terminated || [];
     list.innerHTML = contractsBlocksHTML(data, true);
+    applyTranslations();   // инжектит data-tooltip-text в подсказки блоков
   } catch (err) {
     toast(errorMessage(err), 'error');
   }
@@ -141,12 +143,7 @@ function openContractView(id) {
   if (docBtn) {
     if (c.doc?.id) {
       docBtn.style.display = '';
-      docBtn.onclick = async () => {
-        docBtn.classList.add('btn-loading');
-        try { await media.openPrivate(c.doc.id); }
-        catch (err) { toast(errorMessage(err), 'error'); }
-        finally { docBtn.classList.remove('btn-loading'); }
-      };
+      docBtn.onclick = () => openMediaViewer(c.doc.id, { name: `contract-doc-${c.doc.id}` });
     } else docBtn.style.display = 'none';
   }
   openModal('contract-view-modal');
@@ -335,6 +332,28 @@ function refreshGuard(which) {
   btn.classList.toggle('is-pending', !ok);
 }
 
+/** Подсветить незаполненные обязательные поля шага (клик по серой кнопке). */
+function highlightMissing(which, step) {
+  const p = which === 'create' ? 'ct' : 'cte';
+  const req = t('errors.required') || 'Обязательное поле';
+  if (step === 1) {
+    if (which === 'create') {
+      const id = Number(document.getElementById('ct-partner-id')?.value);
+      if (!(Number.isInteger(id) && id > 0)) setFieldError('err-ct-partner', req);
+      if (!(document.getElementById('ct-name')?.value || '').trim()) setFieldError('err-ct-name', req);
+      if (!document.querySelector('input[name="ct-role"]:checked')) showAlertText('err-ct', 'err-ct-text', req);
+    } else {
+      if (!(document.getElementById('cte-name')?.value || '').trim()) setFieldError('err-cte-name', req);
+    }
+  } else if (step === 2) {
+    validateStep2(p);
+  } else if (step === 3) {
+    const errEl = document.getElementById(`err-${p}-sla`);
+    const errSpan = errEl?.querySelector('span');
+    if (errEl && errSpan) { errSpan.textContent = t('contracts.sla_required') || t('errors.required'); errEl.classList.add('show'); }
+  }
+}
+
 function wireFlow(which) {
   const flow = FLOWS[which];
   flow.steps.forEach(sid => {
@@ -345,7 +364,7 @@ function wireFlow(which) {
   });
   document.getElementById(`btn-${flow.prefix}-next`)?.addEventListener('click', async () => {
     const step = _flowState[which].step;
-    if (!flow.requiredOk(step)) return;     // guard — кнопка серая
+    if (!flow.requiredOk(step)) { highlightMissing(which, step); return; }  // серая кнопка → подсветим, чего не хватает
     const ok = await flow.onAdvance(step);
     if (!ok) return;
     if (step < flow.total) showStep(which, step + 1);

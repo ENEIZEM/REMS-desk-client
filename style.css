@@ -163,6 +163,10 @@ h1, h2, h3, h4, h5, h6 { font-weight: 600; line-height: 1.25; color: var(--clr-t
   background:   var(--clr-bg-muted)     !important;
   color:        var(--clr-text-muted)   !important;
   border-color: var(--clr-border)       !important;
+  /* Иконка тоже должна стать серой — иначе у primary-кнопки в is-pending
+     остаётся белый глиф (--btn-icon:#fff) и он не виден на серой подложке. */
+  --btn-icon:       var(--clr-text-muted) !important;
+  --btn-icon-hover: var(--clr-text-muted) !important;
   cursor: pointer;
 }
 .btn.is-pending:hover { background: var(--clr-bg-muted) !important; filter: brightness(0.97); }
@@ -1041,38 +1045,51 @@ body[data-sidebar="closed"] .sidebar {
 
 /* "Это вы" indicator — small chip after the name. Same tone as the
    accent buttons so it stands out without being loud. */
-.members-row-self {
+/* «Это вы» — квадрат того же размера/формы, что и кнопка удаления
+   (.members-row-delete), но зелёный и не-кликабельный. Так все per-row
+   контролы визуально выровнены: у одних строк — зелёный «вы», у других —
+   красная корзина удаления. Подсказка — через нативный title. */
+/* Квадраты per-row контролов: ОБА серые в покое, цвет — только на hover.
+   «Удалить» → красный, «Это вы» → зелёный (полная аналогия поведения). */
+.members-row-self,
+.members-row-delete {
+  width: 1.85rem;
+  height: 1.85rem;
   display: inline-flex;
   align-items: center;
-  padding: 0.1rem 0.5rem;
-  border-radius: 999px;
-  background: var(--clr-accent-light);
-  color: var(--clr-accent);
-  font-size: 0.7rem;
-  font-weight: 600;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--clr-border);
+  background: var(--clr-bg-muted);
+  color: var(--clr-text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color var(--trans-normal), background var(--trans-normal), border-color var(--trans-normal);
 }
+.members-row-delete:hover {
+  background: var(--clr-error);
+  border-color: var(--clr-error);
+  color: #fff;
+}
+.members-row-self:hover {
+  background: var(--clr-accent);
+  border-color: var(--clr-accent);
+  color: #fff;
+}
+.members-row-self i { font-size: 1rem; }
 
 .members-row-actions { display: flex; gap: var(--space-2); flex-shrink: 0; align-items: center; }
 .members-row-badge   { flex-shrink: 0; }
 
-/* Icon-only delete button — sits among the right-side actions. Hover
-   shifts the icon to the danger red. */
+/* Icon-only delete button — серый по умолчанию (см. объединённое правило
+   выше), на hover краснеет. */
 .members-row-delete {
-  width: 2.25rem;
-  height: 2.25rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--clr-border);
-  background: var(--clr-surface);
-  color: var(--clr-text-muted);
   cursor: pointer;
   transition: color var(--trans-normal), background var(--trans-normal), border-color var(--trans-normal);
 }
 .members-row-delete:hover {
-  color: var(--clr-error);
-  background: var(--clr-error-light);
+  color: #fff;
+  background: var(--clr-error);
   border-color: var(--clr-error);
 }
 .members-row-delete i { font-size: 1rem; }
@@ -1333,6 +1350,10 @@ body[data-sidebar="closed"] .sidebar {
 /* Expand-state — после клика по карточке убираем line-clamp, и
    полный текст становится виден. Высота карточки увеличивается
    плавно благодаря native transition контейнера .notification-item. */
+/* Наведение раскрывает полный текст уведомления (без клика). Клик теперь
+   сразу переходит на связанную вкладку, поэтому раскрытие переехало на
+   :hover. .is-expanded сохранён для обратной совместимости. */
+.notification-item:hover .notification-body,
 .notification-item.is-expanded .notification-body {
   -webkit-line-clamp: unset;
   display: block;
@@ -1462,10 +1483,11 @@ body[data-sidebar="closed"] .sidebar {
   cursor: pointer;   /* указатель — toast кликабелен (expand) */
   transition: max-height .2s ease;
 }
-/* В expanded-режиме разрешаем тосту вырасти и убираем clipping. */
+/* При наведении (и в legacy is-expanded) разрешаем тосту вырасти и
+   убираем clipping, чтобы полный текст был виден без клика. */
+.notify-toast:hover,
 .notify-toast.is-expanded {
   overflow: visible;
-  cursor: default;
 }
 /* Top row inside a toast: icon-tile · body · (inline actions in navigate mode).
    In owner_decide mode the actions move to their own row below, freeing
@@ -1506,6 +1528,7 @@ body[data-sidebar="closed"] .sidebar {
   overflow: hidden;
   word-break: break-word;
 }
+.notify-toast:hover .notify-toast-title,
 .notify-toast.is-expanded .notify-toast-title {
   -webkit-line-clamp: unset;
   display: block;
@@ -1524,6 +1547,7 @@ body[data-sidebar="closed"] .sidebar {
 }
 /* Раскрытый toast — клик по body убирает clamp; плашка растёт по
    высоте чтобы вместить весь текст. */
+.notify-toast:hover .notify-toast-text,
 .notify-toast.is-expanded .notify-toast-text {
   -webkit-line-clamp: unset;
   display: block;
@@ -2211,6 +2235,11 @@ body[data-sidebar="closed"] .sidebar {
 .profile-card-icon.teal { background: var(--clr-navy-light); color: var(--clr-navy); }
 .profile-card-icon.navy { background: var(--clr-navy-light); color: var(--clr-navy); }
 .profile-card-icon.gold { background: #fef3c7;               color: #b45309; }
+/* slate — нейтральная серо-синяя подложка для блока «Завершённые
+   контракты». Цвет иконки — насыщенный slate (#475569), сопоставимый по
+   контрасту с navy (#2a3c55), а не блёклый --clr-text-secondary (#6b7280),
+   иначе иконка выглядела тусклее остальных. */
+.profile-card-icon.slate { background: var(--clr-navy-light); color: #475569; }
 .profile-card-title    { font-size: var(--text-base); font-weight: 700; color: var(--clr-text-primary); flex: 1; min-width: 0; }
 .profile-card-trailing { font-size: var(--text-xs);   color: var(--clr-text-muted); }
 /* Symmetric vertical padding so the FIRST and LAST rows render exactly
@@ -2728,6 +2757,14 @@ body[data-role="employee"] .members-row-stats { display: none; }
   border-left: 3px solid var(--clr-warning, #f59e0b);
 }
 .team-colleague-row--pending:hover { background: var(--clr-warning-light); }
+/* Аватар e-mail/phone-инвайта — иконки вместо инициалов (человек ещё
+   не зарегистрирован, аватара нет). Нейтральная подложка. */
+.avatar.team-invite-avatar {
+  background: var(--clr-bg-muted);
+  color: var(--clr-text-secondary);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.05rem;
+}
 .team-colleague-text { flex: 1; min-width: 0; }
 .team-colleague-name {
   font-weight: 600; font-size: var(--text-sm);
@@ -2754,13 +2791,22 @@ body[data-role="employee"] .members-row-stats { display: none; }
   flex-shrink: 0;
 }
 .team-stat-pill {
+  /* Высота + шрифт как у статус-бейджей (.badge.badge-icon): xs / 700 /
+     padding .3rem .7rem — единый вид плашек по всему интерфейсу. */
   font-size: var(--text-xs);
-  padding: .2rem .55rem;
+  padding: .3rem .7rem;
   border-radius: 999px;
   background: var(--clr-bg-muted);
   color: var(--clr-text-secondary);
-  font-weight: 600;
+  font-weight: 700;
   white-space: nowrap;
+}
+/* Бейдж роли в строке коллеги — те же размеры, что у статус-бейджей. */
+.team-role-badge {
+  padding: .3rem .7rem;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  border-radius: 999px;
 }
 .team-stat-pill.is-active { color: var(--clr-info, #1e40af); }
 .team-stat-pill.is-closed { color: var(--clr-success, #0d9488); }
@@ -3380,6 +3426,25 @@ body[data-role="solo"]     [data-role-only="employee"] {
 .role-card[data-ct-role="contractor"]:has(input[type="radio"]:checked) .role-card-label,
 .role-card[data-ct-role="contractor"].selected .role-card-label { color: #be185d; }
 
+/* Тип заявки (внутренняя / по контракту) — выбранная карточка. Раньше
+   стиля .selected для data-rq-type не было → клик не менял цвет. */
+.role-card[data-rq-type="internal"]:has(input[type="radio"]:checked),
+.role-card[data-rq-type="internal"].selected,
+.role-card[data-rq-type="contract"]:has(input[type="radio"]:checked),
+.role-card[data-rq-type="contract"].selected {
+  border-color: var(--clr-navy);
+  background: var(--clr-navy-light);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--clr-navy) 18%, transparent);
+}
+.role-card[data-rq-type="internal"]:has(input[type="radio"]:checked) .role-card-icon,
+.role-card[data-rq-type="internal"].selected .role-card-icon,
+.role-card[data-rq-type="contract"]:has(input[type="radio"]:checked) .role-card-icon,
+.role-card[data-rq-type="contract"].selected .role-card-icon { background: var(--clr-navy); color: #fff; }
+.role-card[data-rq-type="internal"]:has(input[type="radio"]:checked) .role-card-label,
+.role-card[data-rq-type="internal"].selected .role-card-label,
+.role-card[data-rq-type="contract"]:has(input[type="radio"]:checked) .role-card-label,
+.role-card[data-rq-type="contract"].selected .role-card-label { color: var(--clr-navy); }
+
 /* ── Бейдж моей роли в карточке контракта — использует общий .badge,
    те же размеры что у badge-role-owner/employee (#5, #8). ── */
 .badge-role-client     { background: #ffedd5; color: #c2410c; }   /* burnt-orange */
@@ -3550,30 +3615,42 @@ body[data-role="solo"]     [data-role-only="employee"] {
   transition: background var(--trans-fast), color var(--trans-fast), border-color var(--trans-fast);
   position: relative;
 }
-.contract-icon-btn:hover {
-  background: var(--clr-text-secondary); color: #fff;
-  border-color: var(--clr-text-secondary);
+/* Серые icon-кнопки (редактировать, крестик) — на hover/нажатии становятся
+   акцентно-серыми (navy). Danger-вариант (удалить/разорвать) — красным. */
+.contract-icon-btn:hover,
+.contract-icon-btn:active {
+  background: var(--clr-navy); color: #fff;
+  border-color: var(--clr-navy);
 }
-.contract-icon-btn--danger:hover {
+.contract-icon-btn--danger:hover,
+.contract-icon-btn--danger:active {
   background: var(--clr-error, #ef4444); color: #fff;
   border-color: var(--clr-error, #ef4444);
 }
 .contract-icon-btn i { font-size: 1rem; line-height: 1; }
 .contract-icon-actions { display: inline-flex; gap: 0.25rem; }
 
-/* Подсказка через [data-ct-tip] — серо-акцентный фон, как стандартные
-   tooltip в проекте, но темнее для контраста с управляющим действием. */
-.contract-icon-btn[data-ct-tip]::after {
+/* Подсказка через [data-ct-tip] — общий стиль для всех icon-кнопок в
+   списках (контракты, оборудование, коллеги). Серо-акцентный фон. */
+[data-ct-tip] { position: relative; }
+[data-ct-tip]::after {
   content: attr(data-ct-tip);
   position: absolute; bottom: calc(100% + 0.4rem); right: 0;
-  background: var(--clr-text-primary); color: #fff;
+  /* Тот же акцентный фон, что у всех подсказок проекта (.profile-card-tooltip). */
+  background: var(--clr-navy); color: #fff;
   padding: 0.35rem 0.55rem; border-radius: var(--radius-sm);
   font-size: var(--text-xs); white-space: nowrap;
   opacity: 0; pointer-events: none; transition: opacity 0.15s;
   box-shadow: var(--shadow-md); z-index: 50;
 }
-.contract-icon-btn[data-ct-tip]:hover::after,
-.contract-icon-btn[data-ct-tip]:focus-visible::after { opacity: 1; }
+[data-ct-tip]:hover::after,
+[data-ct-tip]:focus-visible::after { opacity: 1; }
+/* В скролл-списках (оборудование, коллеги) у ВЕРХНЕЙ строки подсказка над
+   кнопкой обрезается контейнером — показываем её СНИЗУ. */
+.equipment-card [data-ct-tip]::after,
+.team-colleague-row [data-ct-tip]::after {
+  bottom: auto; top: calc(100% + 0.4rem);
+}
 
 /* SLA-строка из 4 цветных плашек (под прогресс-баром).
    Цвета берём из существующих .sla-critical / .sla-high / .sla-medium / .sla-low. */
@@ -3673,3 +3750,346 @@ body[data-role="solo"]     [data-role-only="employee"] {
   border-radius: var(--radius-md); cursor: pointer; font-size: var(--text-sm);
 }
 .ct-role-opt input { accent-color: var(--clr-primary); }
+
+/* ═══════════════════════════════════════════════════════════════
+   Equipment (реестр техники) — карточки, фото-тайл, модалка.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Контейнер кнопок в page-header (у owner — Добавить технику + Пригласить). */
+.page-header-actions { display: inline-flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+
+/* Список карточек техники — как у контрактов: тонкий padding, вертикальный стек. */
+.profile-card-body.equipment-list {
+  padding: var(--space-2);
+  display: flex; flex-direction: column; gap: 0.6rem;
+}
+
+/* Карточка техники — без рамки, как строка коллеги (.team-colleague-row):
+   мягкая подсветка на hover. Вертикально: верхний ряд [фото слева |
+   контент справа], под ним — прогресс-бар гарантии на всю ширину. */
+.equipment-card {
+  display: flex; flex-direction: column; gap: 0.45rem;
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  transition: background var(--trans-fast);
+}
+.equipment-card:hover { background: var(--clr-bg-subtle); }
+.equipment-card + .equipment-card { margin-top: .15rem; }
+
+.equipment-card-top { display: flex; align-items: flex-start; gap: 0.7rem; }
+.equipment-card-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+/* Шапка: текст(brand/model/notes) слева + статус/действия справа. */
+.equipment-card-head {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem;
+}
+
+/* Фото слева — фиксированный квадрат. Прогресс-бар гарантии уезжает под
+   него (на всю ширину карточки, см. .equipment-warranty-wrap). */
+.equipment-card-photo {
+  flex-shrink: 0;
+  width: 4.5rem; height: 4.5rem;
+  border-radius: var(--radius-md); overflow: hidden;
+  background: var(--clr-bg-muted);
+  display: flex; align-items: center; justify-content: center;
+}
+.equipment-card-photo[data-eq-photo-view] { cursor: pointer; }
+.equipment-card-photo img { width: 100%; height: 100%; object-fit: cover; }
+.equipment-card-photo--empty { color: var(--clr-text-muted); font-size: 1.6rem; }
+
+.equipment-card-text { flex: 1; min-width: 0; }
+.equipment-card-brand { font-weight: 600; font-size: var(--text-sm); color: var(--clr-text-primary); }
+/* Текст карточки сделан заметнее (был тусклым): модель — primary, заметки —
+   secondary, чуть крупнее. */
+.equipment-card-model { font-size: var(--text-sm); color: var(--clr-text-primary); font-weight: 500; margin-top: 1px; }
+.equipment-card-notes {
+  font-size: var(--text-xs); color: var(--clr-text-secondary); margin-top: 2px;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  overflow: hidden; word-break: break-word;
+}
+/* При наведении на карточку — раскрываем заметки целиком (высота растёт). */
+.equipment-card:hover .equipment-card-notes { -webkit-line-clamp: unset; overflow: visible; }
+.equipment-card-head-right {
+  display: inline-flex; align-items: center; gap: 0.45rem; flex-shrink: 0;
+}
+
+.equipment-card-meta {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem;
+  font-size: var(--text-xs); color: var(--clr-text-secondary);
+  margin-top: 0.5rem;
+}
+/* ВАЖНО: НЕ inline-flex с gap — иначе подсветка поиска <span class="eq-hl">
+   разрывает слово на два flex-элемента и gap вставляет «лишний отступ»
+   прямо внутри слова после совпадения. Делаем inline + отступ на иконке. */
+.equipment-meta-cat { display: inline; font-weight: 500; }
+.equipment-meta-cat i { margin-right: 0.25rem; }
+.equipment-card-meta .contract-muted { display: inline; color: var(--clr-text-secondary); }
+.equipment-card-meta .contract-muted i { margin-right: 0.2rem; }
+
+/* Прогресс-бар гарантии — те же размеры, что у срока контракта. */
+.equipment-warranty-wrap { margin-top: 0.5rem; }
+.equipment-warranty-track {
+  height: 6px; background: var(--clr-bg-muted);
+  border-radius: 3px; overflow: hidden;
+}
+.equipment-warranty-fill { height: 100%; transition: width 0.3s, background 0.3s; }
+.equipment-warranty-meta {
+  display: flex; justify-content: space-between;
+  font-size: var(--text-xs); color: var(--clr-text-muted); margin-top: 0.25rem;
+}
+
+/* ── Модалка: выбор категории (иконка + select) ─────────────────── */
+.eq-category-wrap { display: flex; align-items: center; gap: 0.55rem; }
+.eq-category-wrap select { flex: 1; }
+#eq-category-icon { font-size: 1.4rem; color: var(--clr-navy); flex-shrink: 0; }
+.eq-category-desc { font-size: var(--text-xs); color: var(--clr-text-muted); margin: 0.35rem 0 0; }
+
+/* ── Модалка: фото-тайл (загрузка/превью) ───────────────────────── */
+.equipment-photo-tile {
+  border: 1px dashed var(--clr-border); border-radius: var(--radius-md);
+  padding: 0.85rem; cursor: pointer; min-height: 4.5rem;
+  display: flex; align-items: center; justify-content: center;
+  transition: border-color var(--trans-fast), background var(--trans-fast);
+}
+.equipment-photo-tile:hover { border-color: var(--clr-navy); background: var(--clr-bg-subtle); }
+.equipment-photo-empty { display: flex; flex-direction: column; align-items: center; gap: 0.35rem; color: var(--clr-text-muted); }
+.equipment-photo-empty i { font-size: 1.6rem; }
+.equipment-photo-filled { position: relative; display: flex; align-items: center; justify-content: center; width: 100%; }
+.equipment-photo-filled img { max-height: 130px; max-width: 100%; border-radius: var(--radius-sm); object-fit: contain; }
+#eq-photo-clear { position: absolute; top: -0.35rem; right: -0.35rem; background: var(--clr-surface); border: 1px solid var(--clr-border); border-radius: 50%; }
+
+/* ── Модалка просмотра фото техники — фото на максимум ширины/высоты ── */
+.modal.modal-photo { max-width: min(92vw, 820px); width: 100%; }
+.modal-body.equipment-photo-view {
+  display: flex; align-items: center; justify-content: center;
+  padding: var(--space-2);
+}
+.equipment-photo-view img {
+  max-width: 100%; max-height: 70vh;
+  object-fit: contain; border-radius: var(--radius-md);
+}
+
+/* ── Авто-счётчик символов под полями модалок (char-counter.js) ──── */
+.char-counter {
+  margin-top: 0.25rem;
+  font-size: var(--text-xs);
+  color: var(--clr-text-muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.char-counter.is-near { color: var(--clr-warning, #b45309); }
+.char-counter.is-full { color: var(--clr-error, #ef4444); font-weight: 600; }
+
+/* ═══════════════════════════════════════════════════════════════
+   Requests (заявки) — карточки, статус/приоритет-бейджи, дорожная карта.
+   Цвета статусов синхронизированы с лендингом (index.html .status-*).
+   ═══════════════════════════════════════════════════════════════ */
+.req-badge-new        { background: #dbeafe; color: #1d4ed8; }
+.req-badge-assigned   { background: #fef3c7; color: #b45309; }
+.req-badge-in_progress{ background: #fff7ed; color: #c2410c; }
+.req-badge-done       { background: #dcfce7; color: #15803d; }
+.req-badge-closed     { background: #f1f5f9; color: #475569; }
+.req-badge-cancelled  { background: var(--clr-error-light); color: #b91c1c; }
+
+.req-prio-low      { background: #f1f5f9; color: #475569; }
+.req-prio-medium   { background: #dbeafe; color: #1d4ed8; }
+.req-prio-high     { background: #fef3c7; color: #b45309; }
+.req-prio-critical { background: var(--clr-error-light); color: #b91c1c; }
+
+.profile-card-body.requests-feed-body { display: flex; flex-direction: column; gap: 0.5rem; }
+.request-card { padding: var(--space-2); border-radius: var(--radius-md); transition: background var(--trans-fast); }
+.request-card:hover { background: var(--clr-bg-subtle); }
+.request-card-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.request-card-number { font-weight: 700; font-size: var(--text-sm); color: var(--clr-text-primary); }
+.request-card-head-right { display: inline-flex; gap: 0.4rem; align-items: center; flex-shrink: 0; }
+.request-card-desc {
+  font-size: var(--text-sm); color: var(--clr-text-primary); margin-top: 0.35rem;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; word-break: break-word;
+}
+.request-card-meta {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem;
+  font-size: var(--text-xs); color: var(--clr-text-secondary); margin-top: 0.4rem;
+}
+.request-card-meta .contract-muted { display: inline-flex; align-items: center; gap: 0.2rem; }
+
+.modal.modal-roadmap { max-width: min(95vw, 880px); width: 100%; }
+.modal-body.request-roadmap-body { display: flex; gap: 1.1rem; align-items: stretch; max-height: 66vh; }
+.request-roadmap-rail { flex-shrink: 0; width: 9.5rem; }
+.rrm-rail-inner { display: flex; flex-direction: column; gap: 0; }
+.rrm-rail-step { position: relative; display: flex; align-items: center; gap: 0.55rem; padding: 0.5rem 0; }
+.rrm-rail-step:not(:last-child)::after {
+  content: ''; position: absolute; left: 0.93rem; top: 1.9rem; bottom: -0.4rem; width: 2px; background: var(--clr-border);
+}
+.rrm-rail-dot {
+  width: 1.9rem; height: 1.9rem; flex-shrink: 0; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--clr-bg-muted); color: var(--clr-text-muted);
+  border: 2px solid var(--clr-border); font-size: 0.95rem; z-index: 1;
+}
+.rrm-rail-label { font-size: var(--text-xs); color: var(--clr-text-muted); font-weight: 600; }
+.rrm-rail-step.is-done .rrm-rail-dot, .rrm-rail-step.is-active .rrm-rail-dot { border-color: transparent; }
+.rrm-rail-step.is-done .rrm-rail-label, .rrm-rail-step.is-active .rrm-rail-label { color: var(--clr-text-primary); }
+.rrm-rail-step.is-active .rrm-rail-dot { box-shadow: 0 0 0 4px var(--clr-bg-subtle); }
+.rrm-rail-step.is-done.req-rail-new .rrm-rail-dot,        .rrm-rail-step.is-active.req-rail-new .rrm-rail-dot        { background: #dbeafe; color: #1d4ed8; }
+.rrm-rail-step.is-done.req-rail-assigned .rrm-rail-dot,   .rrm-rail-step.is-active.req-rail-assigned .rrm-rail-dot   { background: #fef3c7; color: #b45309; }
+.rrm-rail-step.is-done.req-rail-in_progress .rrm-rail-dot,.rrm-rail-step.is-active.req-rail-in_progress .rrm-rail-dot{ background: #fff7ed; color: #c2410c; }
+.rrm-rail-step.is-done.req-rail-done .rrm-rail-dot,       .rrm-rail-step.is-active.req-rail-done .rrm-rail-dot       { background: #dcfce7; color: #15803d; }
+.rrm-rail-step.is-done.req-rail-closed .rrm-rail-dot,     .rrm-rail-step.is-active.req-rail-closed .rrm-rail-dot     { background: #f1f5f9; color: #475569; }
+.rrm-rail-step.req-rail-cancelled .rrm-rail-dot { background: var(--clr-error-light); color: #b91c1c; border-color: transparent; }
+.rrm-rail-step.is-inview .rrm-rail-label { text-decoration: underline; text-underline-offset: 3px; }
+.rrm-rail-step.is-inview .rrm-rail-dot { outline: 2px solid var(--clr-navy); outline-offset: 1px; }
+
+.request-roadmap-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+.request-roadmap-summary { border-bottom: 1px solid var(--clr-border); padding-bottom: 0.6rem; }
+.rrm-sum-row { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.4rem; }
+.rrm-sum-desc { font-size: var(--text-sm); color: var(--clr-text-primary); white-space: pre-wrap; word-break: break-word; }
+.rrm-sum-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.4rem; font-size: var(--text-xs); color: var(--clr-text-secondary); }
+
+.request-history { overflow-y: auto; flex: 1; padding-right: 0.35rem; }
+.rrm-event { display: flex; gap: 0.6rem; padding: 0.45rem 0; }
+.rrm-event-dot {
+  width: 1.6rem; height: 1.6rem; flex-shrink: 0; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; font-size: 0.85rem;
+  background: var(--clr-bg-muted); color: var(--clr-text-secondary);
+}
+.rrm-event.req-rail-new .rrm-event-dot         { background: #dbeafe; color: #1d4ed8; }
+.rrm-event.req-rail-assigned .rrm-event-dot    { background: #fef3c7; color: #b45309; }
+.rrm-event.req-rail-in_progress .rrm-event-dot { background: #fff7ed; color: #c2410c; }
+.rrm-event.req-rail-done .rrm-event-dot        { background: #dcfce7; color: #15803d; }
+.rrm-event.req-rail-closed .rrm-event-dot      { background: #f1f5f9; color: #475569; }
+.rrm-event.req-rail-cancelled .rrm-event-dot   { background: var(--clr-error-light); color: #b91c1c; }
+.rrm-event-body { flex: 1; min-width: 0; }
+.rrm-event-head { display: flex; justify-content: space-between; gap: 0.5rem; }
+.rrm-event-title { font-weight: 600; font-size: var(--text-sm); }
+.rrm-event-time { font-size: var(--text-xs); color: var(--clr-text-muted); white-space: nowrap; }
+.rrm-event-side { font-size: var(--text-xs); color: var(--clr-text-muted); }
+.rrm-event-comment { font-size: var(--text-sm); color: var(--clr-text-secondary); margin-top: 0.2rem; white-space: pre-wrap; word-break: break-word; }
+.rrm-event-att { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.4rem; }
+.rrm-att { border: 1px solid var(--clr-border); border-radius: var(--radius-sm); cursor: pointer; background: var(--clr-surface); }
+.rrm-att--img { width: 3.2rem; height: 3.2rem; overflow: hidden; padding: 0; }
+.rrm-att--img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.rrm-att--file { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.3rem 0.55rem; font-size: var(--text-xs); color: var(--clr-text-secondary); }
+.rrm-att--file:hover { color: var(--clr-navy); border-color: var(--clr-navy); }
+
+@media (max-width: 720px) {
+  .modal-body.request-roadmap-body { flex-direction: column; }
+  .request-roadmap-rail { width: 100%; }
+  .rrm-rail-inner { flex-direction: row; flex-wrap: wrap; gap: 0.5rem; }
+  .rrm-rail-step:not(:last-child)::after { display: none; }
+}
+
+.request-rating { display: flex; gap: 0.35rem; font-size: 1.9rem; color: var(--clr-border); cursor: pointer; }
+.request-rating .ph-fill, .request-rating .is-on { color: #f59e0b; }
+.request-rating i:hover { color: #f59e0b; }
+
+.request-attach-tile {
+  border: 1px dashed var(--clr-border); border-radius: var(--radius-md);
+  padding: 0.7rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+  color: var(--clr-text-muted); transition: border-color var(--trans-fast), background var(--trans-fast);
+}
+.request-attach-tile:hover { border-color: var(--clr-navy); background: var(--clr-bg-subtle); }
+.request-attach-list { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.5rem; }
+/* Превью-тайл вложения: миниатюра (фото) или иконка PDF + имя + удалить. */
+.rq-attach-tile-item {
+  display: flex; align-items: center; gap: 0.6rem;
+  border: 1px solid var(--clr-border); border-radius: var(--radius-md);
+  padding: 0.4rem 0.5rem; background: var(--clr-surface);
+}
+.rq-attach-tile-item.is-uploading { opacity: 0.6; }
+.rq-attach-thumb {
+  width: 2.6rem; height: 2.6rem; flex-shrink: 0; border-radius: var(--radius-sm);
+  overflow: hidden; background: var(--clr-bg-muted);
+  display: flex; align-items: center; justify-content: center; color: var(--clr-text-secondary); font-size: 1.3rem;
+}
+.rq-attach-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.rq-attach-name { flex: 1; min-width: 0; font-size: var(--text-xs); color: var(--clr-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rq-attach-x { background: none; border: none; cursor: pointer; color: var(--clr-text-muted); flex-shrink: 0; }
+.rq-attach-x:hover { color: var(--clr-error); }
+.rq-attach-tile-item { cursor: pointer; }
+.rq-attach-tile-item:hover { background: var(--clr-bg-subtle); }
+/* Кнопка «Добавить файлы» в стиле doc-tile контракта (это <button>). */
+.rq-attach-add { width: 100%; font: inherit; text-align: left; margin-top: 0.4rem; }
+
+.role-card.is-disabled { opacity: 0.5; pointer-events: none; }
+
+/* ── Модалка заявки: приоритет как цветные плашки (стиль SLA) ────── */
+.rq-priority-pills { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.4rem; }
+.rq-prio-pill {
+  border: 1.5px solid var(--clr-border); border-radius: var(--radius-md);
+  background: var(--clr-surface); padding: 0.5rem 0.4rem; cursor: pointer;
+  font-size: var(--text-xs); font-weight: 600; color: var(--clr-text-secondary);
+  transition: border-color var(--trans-fast), background var(--trans-fast), color var(--trans-fast);
+}
+.rq-prio-pill:hover { border-color: var(--clr-text-muted); }
+.rq-prio-low.is-on      { background: #f1f5f9; border-color: #475569; color: #475569; }
+.rq-prio-medium.is-on   { background: #dbeafe; border-color: #1d4ed8; color: #1d4ed8; }
+.rq-prio-high.is-on     { background: #fef3c7; border-color: #b45309; color: #b45309; }
+.rq-prio-critical.is-on { background: var(--clr-error-light); border-color: #b91c1c; color: #b91c1c; }
+
+/* SLA-плашки = выбор приоритета (4 кликабельные цветные ячейки с часами). */
+.rq-sla-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.4rem; }
+.rq-sla-cell {
+  display: flex; flex-direction: column; align-items: center; gap: 0.15rem;
+  border: 1.5px solid var(--clr-border); border-radius: var(--radius-md);
+  background: var(--clr-surface); padding: 0.5rem 0.35rem; cursor: pointer;
+  transition: border-color var(--trans-fast), background var(--trans-fast), color var(--trans-fast);
+}
+.rq-sla-cell:hover { border-color: var(--clr-text-muted); }
+.rq-sla-cell-label { font-size: var(--text-xs); font-weight: 600; }
+.rq-sla-cell-val { font-size: var(--text-xs); color: var(--clr-text-muted); }
+.rq-sla-cell.rq-prio-low.is-on      { background: #f1f5f9; border-color: #475569; color: #475569; }
+.rq-sla-cell.rq-prio-medium.is-on   { background: #dbeafe; border-color: #1d4ed8; color: #1d4ed8; }
+.rq-sla-cell.rq-prio-high.is-on     { background: #fef3c7; border-color: #b45309; color: #b45309; }
+.rq-sla-cell.rq-prio-critical.is-on { background: var(--clr-error-light); border-color: #b91c1c; color: #b91c1c; }
+.rq-sla-cell.is-on .rq-sla-cell-val { color: inherit; }
+
+/* Вложения — сетка квадратов (миниатюра / иконка PDF) + квадрат «+». */
+.request-attach-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; }
+.rq-attach-sq {
+  position: relative; aspect-ratio: 1 / 1; border-radius: var(--radius-md);
+  overflow: hidden; background: var(--clr-bg-muted); border: 1px solid var(--clr-border);
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  color: var(--clr-text-secondary); font-size: 1.6rem; padding: 0;
+}
+.rq-attach-sq img { width: 100%; height: 100%; object-fit: cover; }
+.rq-attach-sq--add { border-style: dashed; color: var(--clr-text-muted); }
+.rq-attach-sq--add:hover { border-color: var(--clr-navy); color: var(--clr-navy); background: var(--clr-bg-subtle); }
+.rq-attach-sq .rq-attach-x {
+  position: absolute; top: 2px; right: 2px; width: 1.25rem; height: 1.25rem;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,.55); color: #fff; border: none; border-radius: 50%; cursor: pointer; font-size: .7rem;
+}
+.rq-attach-sq .rq-attach-x:hover { background: var(--clr-error); }
+
+/* legacy SLA-блок (на случай старых ссылок). */
+.rq-sla-box { margin-top: 0.6rem; }
+.rq-sla-caption { font-size: var(--text-xs); color: var(--clr-text-secondary); margin-bottom: 0.4rem; }
+.rq-sla-box .sla-pill.is-on { outline: 2px solid var(--clr-navy); outline-offset: 1px; }
+
+/* «Новая заявка» на карточке техники — компактная зелёная кнопка с надписью. */
+.eq-newreq-btn { white-space: nowrap; }
+
+/* Универсальный просмотрщик вложений — ВЫШЕ остальных модалок (иначе при
+   открытии поверх модалки заявки оказывался под ней). */
+.media-viewer-backdrop { z-index: 300; }
+
+/* Мета выбранного оборудования/контракта под селектом. */
+.rq-meta-box { display: none; align-items: center; gap: 0.55rem; margin-top: 0.5rem; padding: 0.5rem 0.65rem; background: var(--clr-bg-subtle); border-radius: var(--radius-md); }
+.rq-meta-box > i { font-size: 1.5rem; color: var(--clr-navy); flex-shrink: 0; }
+.rq-meta-box .sla-pill-row { width: 100%; }
+.rq-meta-title { font-size: var(--text-sm); font-weight: 600; color: var(--clr-text-primary); }
+.rq-meta-sub { font-size: var(--text-xs); color: var(--clr-text-secondary); }
+
+/* ── Поиск по реестру оборудования (компактно, внутри шапки блока,
+   между заголовком и счётчиком) ─────────────────────────────────── */
+.equipment-search-wrap { position: relative; flex: 0 1 200px; min-width: 90px; }
+.equipment-search-wrap i {
+  position: absolute; left: 0.6rem; top: 50%; transform: translateY(-50%);
+  color: var(--clr-text-muted); font-size: 0.95rem; pointer-events: none;
+}
+.equipment-search-wrap input {
+  padding: 0.3rem 0.5rem 0.3rem 1.9rem; font-size: var(--text-xs); height: 2rem;
+}
+/* Подсветка совпадений поиска. Без padding/border-radius — иначе после
+   выделенного куска появлялся «лишний пробел» (сдвиг inline-контента). */
+.eq-hl { background: #fde68a; color: inherit; padding: 0; border-radius: 0; }

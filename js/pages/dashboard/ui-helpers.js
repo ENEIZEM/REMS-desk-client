@@ -4,7 +4,15 @@
    modal modules don't each carry their own copy.
    ═══════════════════════════════════════════════════════════════ */
 
-export function openModal(id)  { document.querySelector(`#${id}`)?.classList.add('open'); }
+import { applyTranslations } from '../../i18n.js';
+
+export function openModal(id)  {
+  document.querySelector(`#${id}`)?.classList.add('open');
+  // Универсально: при открытии любой модалки прогоняем перевод — так
+  // статический контент (data-i18n) всегда на текущем языке, даже если
+  // модалка инжектится динамически или язык переключали при закрытой.
+  try { applyTranslations(); } catch {}
+}
 export function closeModal(id) { document.querySelector(`#${id}`)?.classList.remove('open'); }
 
 // Глобальный Escape-listener для всех модалок. Backdrop-клик намеренно

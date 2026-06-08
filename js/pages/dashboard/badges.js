@@ -43,6 +43,13 @@ export function roleBadgeDescriptor(role) {
   }
 }
 
+// Бейдж «Администрация сайта» — для организации, которой владеет
+// sys_admin. Тот же indigo-тон и корона, что у роли sys_admin, но своя
+// надпись (организация, а не человек).
+export function siteAdminOrgDescriptor() {
+  return { key: 'profile.org_site_admin', chip: 'chip-sys-admin', badge: 'badge-role-sys-admin', icon: 'ph-crown-simple' };
+}
+
 // Render an old-style filled badge pill (identity strip).
 // The header strip USES THE REGULAR Phosphor variant (not duotone) per
 // the redesign — solid icons read better against the filled pill.

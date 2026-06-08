@@ -5,8 +5,12 @@
      • кнопкой исключения (trash) — для всех не-self не-owner.
    ═══════════════════════════════════════════════════════════════ */
 
-import { t, applyTranslations } from '../../../../i18n.js';
+import { t, applyTranslations, onLangChange } from '../../../../i18n.js';
 import { members as membersApi } from '../../../../api.js';
+import { openModal } from '../../ui-helpers.js';
+import { mountEquipment } from '../_shared/equipment.js';
+
+let _langBound = false;
 
 // Сохраняем profile на уровне модуля, чтобы re-mount по событию
 // 'rems:reload-members' (после исключения сотрудника) знал контекст.
@@ -34,9 +38,19 @@ export function mountOwnerTeam(profile) {
   const selfId = profile?.user?.id;
 
   tabPanel.innerHTML = `
-    <div class="page-header">
-      <h1 class="page-title" data-i18n="nav.colleagues">Ресурсы</h1>
-      <p class="page-desc" data-i18n="team.desc">Сотрудники вашей организации и закреплённая за ней техника.</p>
+    <div class="page-header page-header--with-action">
+      <div>
+        <h1 class="page-title" data-i18n="nav.colleagues">Ресурсы</h1>
+        <p class="page-desc" data-i18n="team.desc">Сотрудники вашей организации и закреплённая за ней техника.</p>
+      </div>
+      <div class="page-header-actions">
+        <button class="btn btn-secondary" id="btn-equipment-add">
+          <i class="ph ph-plus"></i> <span data-i18n="equipment.add_btn">Добавить технику</span>
+        </button>
+        <button class="btn btn-primary" id="btn-team-invite">
+          <i class="ph ph-user-plus"></i> <span data-i18n="members.invite">Пригласить</span>
+        </button>
+      </div>
     </div>
 
     <div class="profile-two-col" style="margin-top:1rem;">
@@ -66,14 +80,19 @@ export function mountOwnerTeam(profile) {
           <div class="profile-card-header profile-card-header--with-actions">
             <div class="profile-card-icon teal"><i class="ph-bold ph-desktop-tower"></i></div>
             <h3 class="profile-card-title" data-i18n="team.equipment_title">Техника</h3>
+            <div class="equipment-search-wrap">
+              <i class="ph ph-magnifying-glass"></i>
+              <input id="equipment-search" type="search" class="form-input" data-i18n-ph="equipment.search_ph" placeholder="Поиск по технике…">
+            </div>
+            <span id="team-equipment-count" class="badge badge-default" style="margin-left:.4rem;"></span>
             <span class="profile-card-tooltip profile-card-tooltip--end" tabindex="0" data-tooltip-key="team.equipment_hint">
               <i class="ph ph-info"></i>
             </span>
           </div>
-          <div class="profile-card-body requests-feed-body">
+          <div class="profile-card-body requests-feed-body equipment-list" id="team-equipment-body">
             <div class="empty-state empty-state--inline">
               <i class="ph ph-desktop-tower"></i>
-              <span class="empty-state-text" data-i18n="team.equipment_empty">Список оборудования появится здесь, когда руководитель его заведёт.</span>
+              <span class="empty-state-text" data-i18n="team.colleagues_loading">Загрузка…</span>
             </div>
           </div>
         </div>
@@ -82,6 +101,36 @@ export function mountOwnerTeam(profile) {
   `;
 
   applyTranslations();
+  mountEquipment(profile);
+
+  // Перерисовка списка коллег при смене языка (роли с t() в строках —
+  // роль/«Ожидает»/«нет оценок» и т.п. иначе остаются на старом языке).
+  if (!_langBound) {
+    _langBound = true;
+    onLangChange(() => {
+      if (document.body.dataset.role === 'owner' && document.querySelector('#team-colleagues-body')) {
+        loadColleagues(_ownerProfile?.user?.id);
+      }
+    });
+  }
+
+  // «Пригласить» — открывает общую #invite-modal (её содержимое + кнопка
+  // подтверждения живут в dashboard.html и не перезаписываются). Чистим
+  // поля и пинаем form-guard синтетическим input-событием, иначе кнопка
+  // подтверждения осталась бы зелёной с прошлого раза.
+  document.querySelector('#btn-team-invite')?.addEventListener('click', () => {
+    const contactEl = document.querySelector('#invite-contact');
+    const msgEl     = document.querySelector('#invite-message');
+    const cntEl     = document.querySelector('#invite-message-count');
+    if (contactEl) contactEl.value = '';
+    if (msgEl)     msgEl.value = '';
+    if (cntEl)     cntEl.textContent = '0';
+    document.querySelector('#err-invite-contact')?.classList.remove('show');
+    document.querySelector('#err-invite')?.classList.add('hidden');
+    contactEl?.dispatchEvent(new Event('input', { bubbles: true }));
+    openModal('invite-modal');
+  });
+
   loadColleagues(selfId);
 }
 
@@ -93,9 +142,15 @@ async function loadColleagues(selfId) {
     const data = await membersApi.list();
     const approved = data?.data?.approved || [];
     const pending  = data?.data?.pending  || [];
-    // Счётчик = одобренные + ожидающие (общая длина списка плашек).
-    if (count) count.textContent = String(approved.length + pending.length);
-    if (!approved.length && !pending.length) {
+    const invites  = data?.data?.invites  || [];
+    // Соискатели (подали сами) требуют решения → «Рассмотреть».
+    // Приглашённые орг-ом аккаунты (direction='from_org') — ждём их
+    // ответа, рассматривать нечего → отдельная плашка-ожидание.
+    const applicants = pending.filter(m => m.invite_direction !== 'from_org');
+    const invited    = pending.filter(m => m.invite_direction === 'from_org');
+    // Счётчик = все плашки (одобренные + ожидающие + e-mail-инвайты).
+    if (count) count.textContent = String(approved.length + pending.length + invites.length);
+    if (!approved.length && !pending.length && !invites.length) {
       body.innerHTML = `
         <div class="empty-state empty-state--inline">
           <i class="ph ph-users"></i>
@@ -104,9 +159,13 @@ async function loadColleagues(selfId) {
       applyTranslations();
       return;
     }
-    // Pending-плашки сверху (требуют действия владельца), затем approved.
+    // Порядок сверху вниз: соискатели (нужно решение) → приглашённые
+    // аккаунты (ждём ответа) → e-mail-инвайты (ждём регистрации) →
+    // действующие сотрудники.
     body.innerHTML =
-      pending.map(m => pendingRowHTML(m)).join('') +
+      applicants.map(m => pendingRowHTML(m)).join('') +
+      invited.map(m => invitedRowHTML(m)).join('') +
+      invites.map(inv => inviteRowHTML(inv)).join('') +
       approved.map(m => colleagueRowHTML(m, selfId)).join('');
 
     // Wire remove-buttons.
@@ -182,13 +241,13 @@ function colleagueRowHTML(m, selfId) {
       <div class="team-colleague-actions">
         <span class="badge ${isOwner ? 'badge-role-owner' : 'badge-role-employee'} team-role-badge">${escapeHTML(roleLbl)}</span>
         ${isSelf
-          ? `<span class="members-row-self" title="${t('members.you')}">${t('members.you')}</span>`
+          ? `<span class="members-row-self" data-ct-tip="${escapeHTML(t('members.you'))}" aria-label="${t('members.you')}"><i class="ph-bold ph-user"></i></span>`
           : ''}
         ${canRemove
           ? `<button class="members-row-delete btn-remove"
                      data-action="remove-member" data-id="${m.id}"
                      data-name="${escapeHTML(m.full_name)}"
-                     title="${t('members.remove')}" aria-label="${t('members.remove')}">
+                     data-ct-tip="${escapeHTML(t('members.remove'))}" aria-label="${t('members.remove')}">
                <i class="ph-bold ph-trash"></i>
              </button>`
           : ''}
@@ -221,7 +280,7 @@ function pendingRowHTML(m) {
       </div>
       <div class="team-colleague-actions">
         <span class="badge badge-warning team-role-badge">${t('members.pending_badge')}</span>
-        <button class="btn btn-sm btn-primary"
+        <button class="btn btn-primary"
                 data-action="review-member" data-id="${m.id}"
                 data-name="${escapeHTML(m.full_name)}"
                 data-message="${escapeHTML(inviteMsg)}">
@@ -230,6 +289,64 @@ function pendingRowHTML(m) {
         </button>
       </div>
     </div>`;
+}
+
+// Плашка приглашённого АККАУНТА (direction='from_org', есть user-строка,
+// status='pending'). Рассматривать нечего — ждём, пока человек примет
+// приглашение. Без кнопки «Рассмотреть», с badge «Приглашён».
+function invitedRowHTML(m) {
+  const avatarTile = m.avatar?.url
+    ? `<img src="${escapeHTML(m.avatar.url)}" alt="">`
+    : `<span>${escapeHTML(initialsOf(m.full_name))}</span>`;
+  const contact = m.email_masked || m.phone_masked || '—';
+  const dept    = m.department || t('members.no_department');
+  return `
+    <div class="team-colleague-row team-colleague-row--pending">
+      <div class="avatar avatar-md">${avatarTile}</div>
+      <div class="team-colleague-text">
+        <div class="team-colleague-name">${escapeHTML(m.full_name)}</div>
+        <div class="team-colleague-contact">${escapeHTML(contact)}</div>
+        <div class="team-colleague-meta">${escapeHTML(dept)} · ${escapeHTML(t('members.invite_awaiting'))}</div>
+      </div>
+      <div class="team-colleague-actions">
+        <span class="badge badge-info team-role-badge">
+          <i class="ph ph-paper-plane-tilt"></i> ${escapeHTML(t('members.invite_sent_badge'))}
+        </span>
+      </div>
+    </div>`;
+}
+
+// Плашка e-mail/phone-инвайта (org_invites): человек ещё НЕ
+// зарегистрирован, поэтому имени нет — показываем контакт + обратный
+// отсчёт до истечения приглашения.
+function inviteRowHTML(inv) {
+  const icon = inv.contact_type === 'phone' ? 'ph-device-mobile' : 'ph-envelope-simple';
+  return `
+    <div class="team-colleague-row team-colleague-row--pending">
+      <div class="avatar avatar-md team-invite-avatar"><i class="ph ${icon}"></i></div>
+      <div class="team-colleague-text">
+        <div class="team-colleague-name">${escapeHTML(inv.contact_masked)}</div>
+        <div class="team-colleague-contact">${escapeHTML(t('members.invite_awaiting'))}</div>
+        <div class="team-colleague-meta">${escapeHTML(inviteTtl(inv.expires_at))}</div>
+      </div>
+      <div class="team-colleague-actions">
+        <span class="badge badge-info team-role-badge">
+          <i class="ph ph-paper-plane-tilt"></i> ${escapeHTML(t('members.invite_sent_badge'))}
+        </span>
+      </div>
+    </div>`;
+}
+
+// Срок жизни инвайта → человекочитаемая строка «истекает через N дн./ч.».
+function inviteTtl(expiresAt) {
+  const ms = new Date(expiresAt).getTime() - Date.now();
+  if (!Number.isFinite(ms) || ms <= 0) return t('members.invite_expired');
+  const days  = Math.floor(ms / 86400000);
+  const hours = Math.floor(ms / 3600000);
+  const time  = days >= 1
+    ? `${days} ${t('members.days_short')}`
+    : `${Math.max(1, hours)} ${t('members.hours_short')}`;
+  return t('members.invite_expires_in', { time });
 }
 
 function initialsOf(name) {
