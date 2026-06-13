@@ -381,8 +381,56 @@ function hideAlert(id) {
           return Number.isFinite(n) && n > 0;
         },
       },
+      // Оба согласия (152-ФЗ) должны быть проставлены.
+      {
+        kind:  'fn',
+        watch: ['#consent-pdn', '#consent-privacy'],
+        fn: () => !!q('#consent-pdn')?.checked && !!q('#consent-privacy')?.checked,
+      },
     ],
   });
+
+  // ─────────────────────────────────────────────────────────────
+  // CONSENT — клик по строке открывает модалку с текстом документа;
+  // чекбокс активируется ТОЛЬКО кнопкой «Согласиться» в модалке.
+  // ─────────────────────────────────────────────────────────────
+  const CONSENT_DOCS = {
+    pdn:     { title: 'auth.register.consent.pdn_title',     body: 'auth.register.consent.pdn_body' },
+    privacy: { title: 'auth.register.consent.privacy_title', body: 'auth.register.consent.privacy_body' },
+  };
+  let _consentDoc = null;
+  function openConsent(doc) {
+    const d = CONSENT_DOCS[doc];
+    if (!d) return;
+    _consentDoc = doc;
+    const title = q('#consent-modal-title');
+    const body  = q('#consent-modal-body');
+    if (title) title.textContent = t(d.title);
+    if (body)  body.textContent  = t(d.body);
+    q('#consent-modal')?.classList.add('open');
+  }
+  function closeConsent() { q('#consent-modal')?.classList.remove('open'); }
+  function setConsent(doc, on) {
+    const cb = q('#consent-' + doc);
+    if (cb) cb.checked = on;
+    const row = document.querySelector(`.consent-row[data-consent="${doc}"]`);
+    if (row) { row.classList.toggle('is-checked', on); row.setAttribute('aria-checked', on ? 'true' : 'false'); }
+    if (on) clearFieldError('err-consent');
+    guardStep1.refresh();
+  }
+  document.querySelectorAll('.consent-row').forEach(row => {
+    const open = () => openConsent(row.dataset.consent);
+    row.addEventListener('click', open);
+    row.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+    });
+  });
+  q('#consent-modal-agree')?.addEventListener('click', () => {
+    if (_consentDoc) setConsent(_consentDoc, true);
+    closeConsent();
+  });
+  q('#consent-modal-close')?.addEventListener('click', closeConsent);
+  q('#consent-modal-close2')?.addEventListener('click', closeConsent);
 
   const guardStep3 = wireFormGuard({
     button:   '#btn-step3',
@@ -446,6 +494,13 @@ function hideAlert(id) {
           state.organization_id   = orgIdNum;
         }
       }
+    }
+
+    // Согласия обязательны (form-guard только сереет кнопку — реальная
+    // проверка здесь).
+    if (!q('#consent-pdn')?.checked || !q('#consent-privacy')?.checked) {
+      showFieldError('err-consent', 'auth.register.consent.required');
+      valid = false;
     }
 
     if (!valid) return;

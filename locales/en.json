@@ -219,7 +219,19 @@
       "success_subtitle": "Your account has been created. Please sign in.",
       "success_btn": "Sign in",
       "already": "Already have an account?",
-      "login_link": "Sign in"
+      "login_link": "Sign in",
+      "consent": {
+        "pdn_prefix": "I consent to",
+        "pdn_link": "the processing of personal data",
+        "privacy_prefix": "I accept",
+        "privacy_link": "the privacy policy",
+        "agree": "Agree",
+        "required": "Both consents are required",
+        "pdn_title": "Consent to the processing of personal data",
+        "pdn_body": "By registering in REMS, I, as the data subject, consent to the processing of my personal data by the operator (the REMS service administration).\n\nData covered: full name; email address and/or phone number; organisation name and position; and information generated while using the system (requests, comments, ratings, attachments).\n\nPurposes: registration and identification of the user, granting access to system features, processing equipment service and repair requests, and sending notifications and verification codes.\n\nProcessing actions: collection, recording, structuring, storage, updating, use, granting access within the user's organisation, anonymisation, blocking and deletion — by both automated and non-automated means.\n\nThis consent is valid from registration until it is withdrawn. Withdrawal is made by contacting the operator; afterwards the account and related data are deleted, except for information that must be retained by law.",
+        "privacy_title": "Privacy policy",
+        "privacy_body": "This Privacy Policy explains how the REMS service processes and protects user data.\n\nWhat is collected: contact details (email, phone), profile information (name, organisation, position) and data created while using the system (requests, attachments, status history).\n\nHow it is used: solely to operate the system — authentication, access isolation between organisations, request processing, notifications. Data is not shared with third parties and is not used for advertising.\n\nData protection: passwords and PINs are stored as irreversible hashes; access to organisation data is isolated at the database level (row-level security); transport uses a secure connection. Verification codes are sent via a third-party email provider and expire after a short time.\n\nRetention: data is kept while the account is active. Media files of closed requests are removed after the retention period set by the organisation.\n\nYour rights: you can request access to, correction of, or deletion of your data by contacting the service administration."
+      }
     }
   },
   "errors": {

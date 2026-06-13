@@ -190,6 +190,29 @@
         <div class="form-error" id="err-org-id"><i class="ph ph-warning-circle"></i><span></span></div>
       </div>
 
+      <!-- Согласия (152-ФЗ). Клик по строке открывает модалку с текстом;
+           чекбокс активируется только кнопкой «Согласиться» в модалке.
+           Без обоих согласий перейти на шаг 2 нельзя. -->
+      <div class="form-group consent-group">
+        <div class="consent-row" data-consent="pdn" role="checkbox" aria-checked="false" tabindex="0">
+          <input type="checkbox" id="consent-pdn" class="sr-only" tabindex="-1">
+          <span class="consent-box"><i class="ph ph-check"></i></span>
+          <span class="consent-text">
+            <span data-i18n="auth.register.consent.pdn_prefix">Я даю согласие на</span>
+            <span class="consent-link" data-i18n="auth.register.consent.pdn_link">обработку персональных данных</span>
+          </span>
+        </div>
+        <div class="consent-row" data-consent="privacy" role="checkbox" aria-checked="false" tabindex="0">
+          <input type="checkbox" id="consent-privacy" class="sr-only" tabindex="-1">
+          <span class="consent-box"><i class="ph ph-check"></i></span>
+          <span class="consent-text">
+            <span data-i18n="auth.register.consent.privacy_prefix">Я принимаю</span>
+            <span class="consent-link" data-i18n="auth.register.consent.privacy_link">политику конфиденциальности</span>
+          </span>
+        </div>
+        <div class="form-error" id="err-consent"><i class="ph ph-warning-circle"></i><span></span></div>
+      </div>
+
       <div class="alert alert-error" id="err-step1"><i class="ph ph-warning-circle"></i><span id="err-step1-text"></span></div>
 
       <button type="button" class="btn btn-primary w-full btn-lg" id="btn-step1">
@@ -425,6 +448,26 @@
     setTimeout(() => initAuthVanta(retries - 1), 100);
   })(50);
 </script>
+
+<!-- ═══ Consent document modal (персональные данные / конфиденциальность) ═══ -->
+<div class="modal-backdrop" id="consent-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-card-icon navy"><i class="ph-bold ph-shield-check"></i></div>
+      <div class="modal-header-text">
+        <h3 class="modal-title" id="consent-modal-title">—</h3>
+      </div>
+      <button class="modal-close" type="button" id="consent-modal-close"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <p class="consent-doc" id="consent-modal-body"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" type="button" id="consent-modal-agree" data-i18n="auth.register.consent.agree">Согласиться</button>
+      <button class="btn btn-secondary" type="button" id="consent-modal-close2" data-i18n="common.close">Закрыть</button>
+    </div>
+  </div>
+</div>
 
 <script type="module" src="../js/pages/register.js"></script>
 </body>

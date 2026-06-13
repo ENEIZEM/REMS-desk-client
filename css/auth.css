@@ -479,3 +479,29 @@
   box-shadow: 0 0 0 3px rgb(220 38 38 / 0.10);
 }
 
+/* ── Consent checkboxes (registration step 1) ──────────────────────
+   Клик по строке открывает модалку с текстом; галочка активируется
+   только кнопкой «Согласиться» (класс .is-checked). Активная — акцентная. */
+.consent-group { gap: 0.6rem; }
+.consent-row {
+  display: flex; align-items: flex-start; gap: 0.6rem;
+  cursor: pointer; user-select: none; border-radius: var(--radius-md);
+}
+.consent-row:focus-visible { outline: 2px solid var(--clr-accent); outline-offset: 3px; }
+.consent-box {
+  flex-shrink: 0; width: 1.25rem; height: 1.25rem; margin-top: 0.05rem;
+  border: 1.5px solid var(--clr-border); border-radius: var(--radius-sm);
+  background: var(--clr-surface); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  transition: background var(--trans-fast), border-color var(--trans-fast);
+}
+.consent-box i { font-size: 0.8rem; opacity: 0; transition: opacity var(--trans-fast); }
+.consent-row:hover .consent-box { border-color: var(--clr-accent); }
+.consent-row.is-checked .consent-box { background: var(--clr-accent); border-color: var(--clr-accent); }
+.consent-row.is-checked .consent-box i { opacity: 1; }
+.consent-text { font-size: var(--text-sm); color: var(--clr-text-secondary); line-height: 1.45; }
+.consent-link { color: var(--clr-accent); font-weight: 600; text-decoration: underline; }
+
+/* Текст документа в модалке согласия — переносы из \n сохраняем. */
+.consent-doc { white-space: pre-line; font-size: var(--text-sm); color: var(--clr-text-secondary); line-height: 1.55; margin: 0; }
+

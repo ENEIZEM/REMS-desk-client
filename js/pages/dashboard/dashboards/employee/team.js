@@ -142,10 +142,14 @@ async function loadColleagues() {
 }
 
 function colleagueRowHTML(m) {
-  // Avatar tile.
-  const avatarTile = m.avatar?.url
+  // Avatar tile (фото кликабельно → просмотрщик, делегат в dashboard/index.js).
+  const hasPhoto = !!m.avatar?.url;
+  const avatarTile = hasPhoto
     ? `<img src="${escapeHTML(m.avatar.url)}" alt="">`
     : `<span>${escapeHTML(initialsOf(m.full_name))}</span>`;
+  const avatarAttrs = hasPhoto
+    ? ` avatar--clickable" data-avatar-view="${escapeHTML(m.avatar.url)}" data-avatar-name="${escapeHTML(m.full_name)}" role="button" tabindex="0" title="${escapeHTML(t('common.attachment_view'))}"`
+    : '"';
   const contact = m.email_masked || m.phone_masked || '—';
   const dept    = m.department || t('members.no_department');
   const roleLbl = m.org_role === 'owner'
@@ -153,7 +157,7 @@ function colleagueRowHTML(m) {
     : t('roles.employee');
   return `
     <div class="team-colleague-row${m.org_role === 'owner' ? ' team-colleague-row--owner' : ' team-colleague-row--employee'}">
-      <div class="avatar avatar-md">${avatarTile}</div>
+      <div class="avatar avatar-md${avatarAttrs}>${avatarTile}</div>
       <div class="team-colleague-text">
         <div class="team-colleague-name">${escapeHTML(m.full_name)}</div>
         <div class="team-colleague-contact">${escapeHTML(contact)}</div>

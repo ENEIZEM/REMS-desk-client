@@ -45,6 +45,7 @@ import '../../lib/char-counter.js';   // авто-счётчики символ�
 import { hidePageLoader }       from '../../lib/page-loader.js';
 import { consumePinPass }       from '../../lib/pin-gate.js';
 import { requirePinUnlock }     from './pin-lock.js';
+import { openImageViewer }      from '../../lib/media-viewer.js';
 import { q }                    from './dom-utils.js';
 import { initSidebar }          from './chrome/sidebar.js';
 import { initUserDropdown }     from './chrome/user-dropdown.js';
@@ -494,6 +495,22 @@ document.addEventListener('click', (e) => {
   input.type = showing ? 'password' : 'text';
   const icon = btn.querySelector('i');
   if (icon) icon.className = showing ? 'ph ph-eye' : 'ph ph-eye-slash';
+});
+
+// Клик по аватару с фото (коллеги, участники) → просмотрщик изображения.
+// data-avatar-view хранит публичный URL фото, data-avatar-name — имя для
+// заголовка скачивания. Делегировано — строки списков пересоздаются.
+document.addEventListener('click', (e) => {
+  const av = e.target.closest('[data-avatar-view]');
+  if (!av) return;
+  openImageViewer(av.dataset.avatarView, { name: av.dataset.avatarName || 'avatar' });
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const av = e.target.closest?.('[data-avatar-view]');
+  if (!av) return;
+  e.preventDefault();
+  openImageViewer(av.dataset.avatarView, { name: av.dataset.avatarName || 'avatar' });
 });
 
 // ─────────────────────────────────────────────────────────────────

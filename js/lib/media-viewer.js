@@ -9,7 +9,7 @@ import { toast, errorMessage } from '../auth.js';
 import { applyTranslations } from '../i18n.js';
 
 const ID = 'rems-media-viewer';
-let _injected = false, _wired = false, _blobUrl = null, _fileName = 'file';
+let _injected = false, _wired = false, _blobUrl = null, _downloadUrl = null, _fileName = 'file';
 
 function ensure() {
   if (_injected) return;
@@ -39,6 +39,7 @@ function ensure() {
 function close() {
   document.getElementById(ID)?.classList.remove('open');
   if (_blobUrl) { try { URL.revokeObjectURL(_blobUrl); } catch {} _blobUrl = null; }
+  _downloadUrl = null;
 }
 
 function wire() {
@@ -47,9 +48,9 @@ function wire() {
   document.getElementById(`${ID}-close`)?.addEventListener('click', close);
   document.getElementById(`${ID}-closebtn`)?.addEventListener('click', close);
   document.getElementById(`${ID}-download`)?.addEventListener('click', () => {
-    if (!_blobUrl) return;
+    if (!_downloadUrl) return;
     const a = document.createElement('a');
-    a.href = _blobUrl; a.download = _fileName;
+    a.href = _downloadUrl; a.download = _fileName;
     document.body.appendChild(a); a.click(); a.remove();
   });
 }
@@ -71,6 +72,7 @@ export async function openMediaViewer(mediaFileId, opts = {}) {
     const { blob, url } = await media.loadPrivateBlob(mediaFileId);
     if (_blobUrl) { try { URL.revokeObjectURL(_blobUrl); } catch {} }
     _blobUrl = url;
+    _downloadUrl = url;
     if (blob.type === 'application/pdf') {
       if (pdf) { pdf.src = url; pdf.style.display = ''; }
     } else if (img) {
@@ -80,4 +82,24 @@ export async function openMediaViewer(mediaFileId, opts = {}) {
     toast(errorMessage(err), 'error');
     close();
   }
+}
+
+/**
+ * Открыть просмотрщик для ПУБЛИЧНОГО изображения по прямому URL (аватары,
+ * логотипы — раздаются как статика, без приватного blob-фетча).
+ * @param {string} url
+ * @param {{ name?: string }} [opts]
+ */
+export function openImageViewer(url, opts = {}) {
+  if (!url) return;
+  ensure(); wire();
+  _fileName = opts.name || 'image';
+  const img = document.getElementById(`${ID}-img`);
+  const pdf = document.getElementById(`${ID}-pdf`);
+  if (pdf) { pdf.style.display = 'none'; pdf.src = ''; }
+  // публичный URL — не blob; сбрасываем прошлый blob, чтобы close() не ревокал чужое
+  if (_blobUrl) { try { URL.revokeObjectURL(_blobUrl); } catch {} _blobUrl = null; }
+  _downloadUrl = url;
+  if (img) { img.src = url; img.style.display = ''; }
+  document.getElementById(ID)?.classList.add('open');
 }
