@@ -23,8 +23,10 @@ if (typeof document !== 'undefined' && !window.__remsModalEscapeWired) {
   window.__remsModalEscapeWired = true;
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
-    // Берём последнюю открытую модалку — она и есть «верхняя» в стеке.
-    const open = document.querySelectorAll('.modal.open');
+    // Класс .open живёт на БЭКДРОПЕ (.modal-backdrop), не на .modal —
+    // селектор '.modal.open' не матчился никогда, и Escape не работал.
+    // Берём последнюю открытую — она и есть «верхняя» в стеке.
+    const open = document.querySelectorAll('.modal-backdrop.open');
     if (!open.length) return;
     const top = open[open.length - 1];
     top.classList.remove('open');

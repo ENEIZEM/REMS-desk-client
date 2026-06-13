@@ -1,0 +1,59 @@
+/* ── 25. Language switcher ────────────────────────────────────── */
+.lang-switcher {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-full);
+  padding: var(--space-1);
+  background: var(--clr-surface);
+}
+.lang-btn {
+  padding: 0.25rem 0.625rem;
+  border: none;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--clr-text-muted);
+  background: transparent;
+  transition: background var(--trans-fast), color var(--trans-fast);
+  letter-spacing: 0.04em;
+}
+/* Per-language active colour: RU → jade-teal, EN → ink-navy. Pairs the
+   active button with the language's "side" of the bilingual brand line
+   (Repair = teal, Equipment = navy). */
+.lang-btn.active                  { color: #fff; background: var(--clr-navy); }
+.lang-btn.active[data-lang="ru"]  { background: var(--clr-accent); }
+.lang-btn.active[data-lang="en"]  { background: var(--clr-navy); }
+.lang-btn:hover:not(.active) { background: var(--clr-bg-muted); color: var(--clr-text-primary); }
+
+/* ── 26. Landing ──────────────────────────────────────────────── */
+/* Landing-only rules — hero, feature cards, CTA, footer — live in
+   css/landing.css and are loaded via <link rel="stylesheet"> on the
+   landing page itself. Other pages don't render those classes, so
+   they don't pay the download cost. */
+
+/* ── 27. Stats ────────────────────────────────────────────────── */
+.stat-card {
+  padding: var(--space-6);
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-xl);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+.stat-icon {
+  width: 2.5rem; height: 2.5rem;
+  border-radius: var(--radius-md);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.25rem; flex-shrink: 0;
+}
+.stat-icon-green  { background: var(--clr-accent-light);  color: var(--clr-accent); }
+.stat-icon-blue   { background: #eff6ff;                  color: #3b82f6; }
+.stat-icon-yellow { background: var(--clr-warning-light); color: var(--clr-warning); }
+.stat-icon-red    { background: var(--clr-error-light);   color: var(--clr-error); }
+.stat-value { font-size: var(--text-2xl); font-weight: 700; line-height: 1; }
+.stat-label { font-size: var(--text-xs); color: var(--clr-text-muted); margin-top: var(--space-1); }
+

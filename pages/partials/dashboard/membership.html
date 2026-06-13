@@ -1,0 +1,166 @@
+<!-- ── Invite member modal ──────────────────────────────────────── -->
+<!-- ── Solo: подтверждение отмены pending-заявки ───────────────
+     Открывается из solo home когда юзер уже pending и нажал
+     «Отменить запрос». На confirm — DELETE /api/users/membership/me. -->
+<div class="modal-backdrop" id="cancel-request-modal">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-card-icon danger"><i class="ph-bold ph-x-circle"></i></div>
+      <div class="modal-header-text">
+        <h3 class="modal-title" data-i18n="solo.cancel_modal_title">Отменить заявку?</h3>
+      </div>
+      <button class="modal-close" data-close-modal="cancel-request-modal"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <p style="margin:0; font-size:var(--text-sm); color:var(--clr-text-secondary);">
+        <span data-i18n="solo.cancel_modal_body">Вы отменяете запрос на вступление в</span>
+        <strong id="cancel-req-target" style="color:var(--clr-text-primary);">—</strong>.
+        <span data-i18n="solo.cancel_modal_warn">Руководитель больше не увидит вашу заявку. Вы сможете подать новую в любую организацию.</span>
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="btn-cancel-request-confirm">
+        <span data-i18n="solo.cancel_modal_confirm">Отменить заявку</span>
+      </button>
+      <button class="btn btn-secondary" data-close-modal="cancel-request-modal" data-i18n="common.cancel">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Solo: запрос членства в орге ─────────────────────────────
+     Открывается из solo home (кнопка «Вступить по ID»). Юзер вводит
+     org_id и (опционально) сообщение для руководителя. Бэк создаёт
+     pending-membership + отправляет owner-у уведомление с этим текстом. -->
+<!-- ── Employee: leave organisation confirm ────────────────────
+     Открывается из шапки организации на вкладках Обзор / Заявки.
+     Только approved-сотрудник; owner получает 403. -->
+<div class="modal-backdrop" id="leave-org-modal">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-card-icon danger"><i class="ph-bold ph-sign-out"></i></div>
+      <div class="modal-header-text">
+        <h3 class="modal-title" data-i18n="membership.leave_confirm_title">Покинуть организацию?</h3>
+      </div>
+      <button class="modal-close" data-close-modal="leave-org-modal"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <p style="margin:0 0 .75rem; font-size:var(--text-sm); color:var(--clr-text-secondary);">
+        <span data-i18n="membership.leave_confirm_body">Вы перестанете быть сотрудником</span>
+        <strong id="leave-org-target" style="color:var(--clr-text-primary);">—</strong>.
+      </p>
+      <!-- Поле причины — необязательное. Текст увидит руководитель в
+           уведомлении «Сотрудник покинул организацию». -->
+      <div class="form-group">
+        <label class="form-label" for="leave-org-reason" data-i18n="employee.leave_reason_label">Причина (необязательно)</label>
+        <textarea id="leave-org-reason" class="form-input" rows="3" maxlength="500"
+                  data-i18n-ph="employee.leave_reason_ph"
+                  placeholder="Опишите коротко, почему уходите. Это увидит руководитель."></textarea>
+        <div class="form-helper" style="font-size:var(--text-xs); color:var(--clr-text-muted); margin-top:.25rem;">
+          <span data-i18n="employee.leave_reason_hint">До 500 символов.</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="btn-leave-org-confirm">
+        <span data-i18n="membership.leave_confirm_yes">Да, покинуть</span>
+      </button>
+      <button class="btn btn-secondary" data-close-modal="leave-org-modal" data-i18n="common.cancel">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="join-org-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-card-icon navy"><i class="ph-bold ph-sign-in"></i></div>
+      <div class="modal-header-text">
+        <h3 class="modal-title" data-i18n="solo.join_modal_title">Запрос на вступление</h3>
+        <p class="modal-subtitle" data-i18n="solo.join_modal_subtitle">Введите ID организации и (по желанию) сообщение руководителю.</p>
+      </div>
+      <button class="modal-close" data-close-modal="join-org-modal"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex; flex-direction:column; gap:1rem;">
+        <div class="form-group">
+          <label class="form-label" for="join-org-id">
+            <span data-i18n="solo.join_org_id_label">ID организации</span>
+            <span class="req">*</span>
+          </label>
+          <div class="input-wrap">
+            <i class="ph ph-hash input-icon"></i>
+            <input id="join-org-id" type="number" min="1" class="form-input"
+                   placeholder="42" autocomplete="off">
+          </div>
+          <div class="form-error" id="err-join-org-id"><i class="ph ph-warning-circle"></i><span></span></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="join-org-message" data-i18n="solo.join_message_label">Сообщение руководителю (необязательно)</label>
+          <textarea id="join-org-message" class="form-input" rows="3" maxlength="500"
+                    data-i18n-ph="solo.join_message_ph"
+                    placeholder="Я Иван Петров, был у вас на собеседовании…"></textarea>
+          <div class="form-helper" style="display:flex; justify-content:space-between; font-size:var(--text-xs); color:var(--clr-text-muted); margin-top:.25rem;">
+            <span data-i18n="solo.join_message_hint">Текст увидит руководитель в уведомлении.</span>
+            <span><span id="join-org-message-count">0</span> / 500</span>
+          </div>
+        </div>
+        <div class="alert alert-error hidden" id="err-join-org"><i class="ph ph-warning-circle"></i><span id="err-join-org-text"></span></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" id="btn-join-org-confirm">
+        <i class="ph ph-paper-plane-tilt"></i>
+        <span data-i18n="solo.btn_join_send">Отправить запрос</span>
+      </button>
+      <button class="btn btn-secondary" data-close-modal="join-org-modal" data-i18n="common.cancel">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="invite-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-card-icon"><i class="ph-bold ph-user-plus"></i></div>
+      <div class="modal-header-text">
+        <h3 class="modal-title" data-i18n="members.invite">Пригласить сотрудника</h3>
+        <p class="modal-subtitle" data-i18n="members.invite_subtitle">Отправьте ссылку по email или телефону</p>
+      </div>
+      <button class="modal-close" data-close-modal="invite-modal"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex; flex-direction:column; gap:1rem;">
+        <div class="form-group">
+          <label class="form-label" for="invite-contact">
+            Email, телефон или ID пользователя <span class="req">*</span>
+          </label>
+          <div class="input-wrap">
+            <i class="ph ph-at input-icon"></i>
+            <input id="invite-contact" type="text" class="form-input" placeholder="email@example.com">
+          </div>
+          <div class="form-error" id="err-invite-contact"><i class="ph ph-warning-circle"></i><span></span></div>
+        </div>
+        <!-- Роль приглашённого всегда employee — выбора нет. Owner не
+             выдаётся через инвайт; передача владения — отдельный сценарий. -->
+        <!-- Опциональное сообщение — увидит приглашённый рядом с
+             кнопками «Принять / Отклонить» на своём solo home. -->
+        <div class="form-group">
+          <label class="form-label" for="invite-message" data-i18n="employee.invite_msg_label">Сообщение приглашённому (необязательно)</label>
+          <textarea id="invite-message" class="form-input" rows="3" maxlength="500"
+                    data-i18n-ph="employee.invite_msg_ph"
+                    placeholder="Например: мы рассматриваем вашу кандидатуру…"></textarea>
+          <div class="form-helper" style="display:flex; justify-content:space-between; font-size:var(--text-xs); color:var(--clr-text-muted); margin-top:.25rem;">
+            <span data-i18n="employee.invite_msg_hint">До 500 символов — приглашённый увидит этот текст.</span>
+            <span><span id="invite-message-count">0</span> / 500</span>
+          </div>
+        </div>
+        <div class="alert alert-error hidden" id="err-invite"><i class="ph ph-warning-circle"></i><span id="err-invite-text"></span></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" id="btn-invite-confirm">
+        <i class="ph ph-paper-plane-tilt"></i>
+        <span>Отправить</span>
+      </button>
+      <button class="btn btn-secondary" data-close-modal="invite-modal" data-i18n="common.cancel">Отмена</button>
+    </div>
+  </div>
+</div>

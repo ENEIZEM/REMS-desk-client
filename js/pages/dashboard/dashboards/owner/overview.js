@@ -12,7 +12,34 @@
 import { t, applyTranslations, onLangChange } from '../../../../i18n.js';
 import { members as membersApi } from '../../../../api.js';
 import { setNotificationsTarget, loadNotifications } from '../../notifications.js';
-import { mountRequests } from '../_shared/requests.js';
+import {
+  mountRequests, renderAll as renderRequests,
+  registerListFilter, getRequests, onRequestsUpdated, periodStart,
+} from '../_shared/requests.js';
+
+/* Орг-статистика владельца из загруженной ленты заявок. Раньше читала
+   user.stats, которого backend никогда не отдавал — всегда нули. */
+function computeOwnerStats(list, myOrgId, period) {
+  const from = periodStart(period);
+  const inP  = (iso) => !from || (iso && new Date(iso) >= from);
+  const weContract = (r) => Number(r.contractor_org_id) === Number(myOrgId);
+  const weClient   = (r) => Number(r.client_org_id) === Number(myOrgId);
+
+  const closed       = list.filter(r => r.status === 'closed' && weContract(r) && inP(r.closed_at));
+  const ratedInt     = closed.filter(r => r.rating != null && r.is_internal);
+  const ratedPartner = closed.filter(r => r.rating != null && !r.is_internal);
+  const avg = (arr) => arr.length ? arr.reduce((s, r) => s + Number(r.rating), 0) / arr.length : null;
+  return {
+    requests_in_work:       list.filter(r => weContract(r) && ['assigned', 'in_progress'].includes(r.status)).length,
+    pool_free:              list.filter(r => r.status === 'new' && weContract(r)).length,
+    requests_closed_period: closed.length,
+    requests_opened_period: list.filter(r => weClient(r) && inP(r.created_at)).length,
+    requests_handled:       ratedInt.length,
+    rating_avg:             avg(ratedInt),
+    partner_handled:        ratedPartner.length,
+    rating_avg_partner:     avg(ratedPartner),
+  };
+}
 
 export function mountOwnerOverview(profile) {
   const slot = document.querySelector('#owner-overview-slot');
@@ -46,9 +73,35 @@ export function mountOwnerOverview(profile) {
   const periodKey = 'rems_owner_overview_period';
   const empKey    = 'rems_owner_overview_employee';
   let activeScope    = localStorage.getItem(scopeKey)    || 'all';
-  let activeType     = localStorage.getItem(typeKey)     || 'created';
+  let activeType     = localStorage.getItem(typeKey)     || 'all_emp';
   let activePeriod   = localStorage.getItem(periodKey)   || 'month';
   let activeEmployee = localStorage.getItem(empKey)      || 'all';
+
+  const myOrgId = Number(profile?.organization?.id);
+
+  // Реальный фильтр ленты (scope × type × period × сотрудник). Раньше
+  // pickers писали только в localStorage и ничего не перерисовывали —
+  // лента всегда показывала «все».
+  registerListFilter('owner-overview', (r) => {
+    if (activeScope === 'internal' && !r.is_internal) return false;
+    if (activeScope === 'partner'  &&  r.is_internal) return false;
+
+    const from = periodStart(activePeriod);
+    if (from) {
+      const anchor = activeType === 'closed' ? (r.closed_at || r.created_at) : r.created_at;
+      if (anchor && new Date(anchor) < from) return false;
+    }
+
+    const empId = activeEmployee !== 'all' ? Number(activeEmployee) : null;
+    const byEmpAuthor   = empId == null || Number(r.author_id) === empId;
+    const byEmpAssignee = empId == null || Number(r.assigned_to_id) === empId;
+
+    if (activeType === 'created') return byEmpAuthor && Number(r.client_org_id) === myOrgId;
+    if (activeType === 'closed')  return byEmpAssignee && r.status === 'closed' && Number(r.contractor_org_id) === myOrgId;
+    if (activeType === 'free')    return r.status === 'new' && Number(r.contractor_org_id) === myOrgId;
+    // all_emp: при выбранном сотруднике — его заявки (автор или исполнитель).
+    return empId == null || Number(r.author_id) === empId || Number(r.assigned_to_id) === empId;
+  });
 
   // Employee filter — динамический (зависит от членов орги).
   // Базовый «Все сотрудники» + конкретные имена.
@@ -71,7 +124,7 @@ export function mountOwnerOverview(profile) {
         </div>
       </div>
       <div class="profile-card-body requests-feed-body" id="owner-overview-requests-body"
-           data-requests-list data-rq-filter="all"></div>
+           data-requests-list data-rq-filter="owner-overview"></div>
     </div>
 
     <div class="profile-two-col employee-two-col" style="margin-top:1rem;">
@@ -88,7 +141,7 @@ export function mountOwnerOverview(profile) {
             </span>
           </div>
           <div class="profile-card-body" id="owner-stats-body">
-            ${renderStatsRows(user)}
+            ${renderStatsRows(user, myOrgId, activePeriod)}
           </div>
         </div>
       </div>
@@ -134,22 +187,31 @@ export function mountOwnerOverview(profile) {
   // в page-header вкладки Обзор (data-rq-create).
   mountRequests(profile).catch(err => console.warn('[owner overview requests]', err));
 
-  // Pickers.
-  wirePopoverPicker(slot, '[data-owner-scope]',         (id) => { activeScope = id; localStorage.setItem(scopeKey, id); }, SCOPE_FILTERS);
-  wirePopoverPicker(slot, '[data-owner-type]',          (id) => { activeType = id;  localStorage.setItem(typeKey, id); }, TYPE_FILTERS);
-  wirePopoverPicker(slot, '[data-owner-period]',        (id) => { activePeriod = id; localStorage.setItem(periodKey, id); }, PERIODS);
+  // Pickers — каждый выбор перерисовывает ленту (фильтр зарегистрирован выше).
+  const redrawStats = () => {
+    const body = slot.querySelector('#owner-stats-body');
+    if (body) body.innerHTML = renderStatsRows(user, myOrgId, activePeriod);
+    applyTranslations();
+  };
+  wirePopoverPicker(slot, '[data-owner-scope]',         (id) => { activeScope = id; localStorage.setItem(scopeKey, id); renderRequests(); }, SCOPE_FILTERS);
+  wirePopoverPicker(slot, '[data-owner-type]',          (id) => { activeType = id;  localStorage.setItem(typeKey, id); renderRequests(); }, TYPE_FILTERS);
+  wirePopoverPicker(slot, '[data-owner-period]',        (id) => { activePeriod = id; localStorage.setItem(periodKey, id); renderRequests(); redrawStats(); }, PERIODS);
   wirePopoverPicker(slot, '[data-owner-stats-period]',  (id) => {
     activePeriod = id;
     localStorage.setItem(periodKey, id);
-    const body = slot.querySelector('#owner-stats-body');
-    if (body) body.innerHTML = renderStatsRows(user);
-    applyTranslations();
+    renderRequests();
+    redrawStats();
   }, PERIODS);
   // Employee filter — popover, заполняется после loadMembers.
   wirePopoverPicker(slot, '[data-owner-emp]', (id) => {
     activeEmployee = id;
     localStorage.setItem(empKey, id);
+    renderRequests();
   }, EMPLOYEE_FILTERS);
+
+  // Статистика пересчитывается из ленты — обновляем при каждой её
+  // перерисовке (первая загрузка, socket-синк, действия по заявкам).
+  onRequestsUpdated('owner-overview-stats', redrawStats);
 
   // Загружаем список сотрудников и обновляем employee-filter dropdown.
   loadMembersForFilter().then(list => {
@@ -172,11 +234,7 @@ export function mountOwnerOverview(profile) {
 
   if (!slot.__remsLangBound) {
     slot.__remsLangBound = true;
-    onLangChange(() => {
-      const body = slot.querySelector('#owner-stats-body');
-      if (body) body.innerHTML = renderStatsRows(user);
-      applyTranslations();
-    });
+    onLangChange(() => redrawStats());
   }
 }
 
@@ -202,8 +260,8 @@ function renderRequestsEmpty() {
   `;
 }
 
-function renderStatsRows(user) {
-  const stats = user.stats || {};
+function renderStatsRows(user, myOrgId, period) {
+  const stats = computeOwnerStats(getRequests(), myOrgId, period);
   const inWork     = Number(stats.requests_in_work ?? 0);
   const poolFree   = Number(stats.pool_free ?? 0);
   const closed     = Number(stats.requests_closed_period ?? 0);
@@ -211,7 +269,8 @@ function renderStatsRows(user) {
   const handledN   = Number(stats.requests_handled ?? 0);
   const hasRating  = stats.rating_avg != null && handledN > 0;
   const ratingAvg  = hasRating ? Number(stats.rating_avg).toFixed(1) : '';
-  const hasPartnerRating = false; // cross-org rating пока не реализован
+  const hasPartnerRating = stats.rating_avg_partner != null && Number(stats.partner_handled) > 0;
+  const partnerAvg = hasPartnerRating ? Number(stats.rating_avg_partner).toFixed(1) : '';
   return `
     <div class="profile-row">
       <span class="profile-row-label" data-i18n="employee.stat_role">Ваша роль в организации</span>
@@ -247,7 +306,7 @@ function renderStatsRows(user) {
       <span class="profile-row-label" data-i18n="owner.stat_rating_partner">Средняя оценка работы партнёрами</span>
       <span class="profile-row-value">
         ${hasPartnerRating
-          ? ``
+          ? `${partnerAvg}<i class="ph-duotone ph-star stat-rating-star" aria-hidden="true" style="margin-left:.35rem;"></i>`
           : `<span class="stats-empty" data-i18n="employee.stat_rating_empty">Нет оценок</span>`}
       </span>
     </div>

@@ -681,7 +681,7 @@ function wireDigitBoxes(inputs, { onSubmit } = {}) {
     if (!fpContact) return;
     hideAlert('err-fp-2');
     try {
-      const data = await auth.sendCode(fpContact, 'reset_password');
+      const data = await auth.sendCode(fpContact, 'reset_password', null, { resend: true });
       fpSetResendCountdown(Number(data?.data?.cooldown) || 60);
       fpCodeInputs.forEach(i => { i.value = ''; i.classList.remove('filled', 'error'); });
       fpCodeInputs[0]?.focus();

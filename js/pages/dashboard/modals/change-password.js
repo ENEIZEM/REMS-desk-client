@@ -498,11 +498,14 @@ export function wireChangePassword(ctx) {
     if (!_verifyTarget) return;
     hideAlertById('err-chp');
     try {
-      const resp = await profile.sendCode({
-        target:  _verifyTarget,
-        type:    _verifyType,
-        purpose: 'change_password',
-      });
+      const resp = _forgotMode
+        ? await auth.sendCode(_verifyTarget, 'reset_password', null, { resend: true })
+        : await profile.sendCode({
+            target:  _verifyTarget,
+            type:    _verifyType,
+            purpose: 'change_password',
+            resend:  true,
+          });
       const cooldown = Number(resp?.data?.cooldown) || 60;
       _codeCtl?.startResendTimer(cooldown);
       _codeCtl?.clear();

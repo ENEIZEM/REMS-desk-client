@@ -1,0 +1,20 @@
+<!-- ═══ Session: revoke confirm ═══════════════════════════════════ -->
+<div class="modal-backdrop" id="session-revoke-modal">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-card-icon" style="background:var(--clr-error-light); color:var(--clr-error);"><i class="ph-bold ph-sign-out"></i></div>
+      <div class="modal-header-text">
+        <h3 class="modal-title" data-i18n="profile.session_revoke_title">Завершить сессию</h3>
+        <p class="modal-subtitle" data-i18n="profile.session_revoke_subtitle">На том устройстве потребуется вход заново</p>
+      </div>
+      <button class="modal-close" data-close-modal="session-revoke-modal"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <p data-i18n="profile.session_revoke_confirm">Завершить эту сессию на другом устройстве?</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="btn-session-revoke-confirm"><i class="ph ph-sign-out"></i> <span data-i18n="profile.session_revoke">Завершить сессию</span></button>
+      <button class="btn btn-secondary" data-close-modal="session-revoke-modal" data-i18n="common.cancel">Отмена</button>
+    </div>
+  </div>
+</div>

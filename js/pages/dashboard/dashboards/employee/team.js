@@ -152,7 +152,7 @@ function colleagueRowHTML(m) {
     ? t('roles.owner')
     : t('roles.employee');
   return `
-    <div class="team-colleague-row">
+    <div class="team-colleague-row${m.org_role === 'owner' ? ' team-colleague-row--owner' : ' team-colleague-row--employee'}">
       <div class="avatar avatar-md">${avatarTile}</div>
       <div class="team-colleague-text">
         <div class="team-colleague-name">${escapeHTML(m.full_name)}</div>

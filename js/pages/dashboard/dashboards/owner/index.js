@@ -58,12 +58,6 @@ export function bootOwnerDashboard(profile) {
     if (titleC) { titleC.setAttribute('data-i18n', 'nav.partners'); titleC.textContent = lbl; }
   };
 
-  // Legacy overview block — больше не нужен (наш mountOwnerOverview
-  // владеет содержимым). role-router сбрасывает inline display='' на
-  // элементах с [data-role-only], поэтому inline-hide в HTML не
-  // работает — нужен explicit hide() здесь.
-  hide('.legacy-overview-block');
-
   // Sidebar: «Сотрудники» → «Ресурсы» (та же логика что у employee,
   // owner тоже видит коллег + технику единым tab'ом). Меняем И
   // data-i18n attribute, И textContent — DOM-walker не перетрёт.

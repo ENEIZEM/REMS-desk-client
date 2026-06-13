@@ -193,6 +193,11 @@ export function wireMediaAttach({
     _activeController = controller;
 
     q('#media-preview-image').src = pendingUrl;
+    // Восстановить элементы, которые мог скрыть delete-only режим
+    // (openForDelete) — иначе после него превью открывалось бы пустым.
+    q('#media-preview-frame')?.classList.remove('hidden');
+    q('#btn-media-confirm')?.style.removeProperty('display');
+    q('#btn-media-replace')?.style.removeProperty('display');
     q('#media-preview-meta').textContent =
       `${file.name} · ${fmtBytes(file.size)}`;
     q('#media-preview-title').textContent =

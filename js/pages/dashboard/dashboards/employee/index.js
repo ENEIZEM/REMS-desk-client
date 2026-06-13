@@ -53,11 +53,6 @@ export function bootEmployeeDashboard(profile) {
   hide('.nav-item[data-tab="catalog"]');
   hide('#tab-catalog');
 
-  // Legacy overview block — не нужен (employee/overview.js владеет
-  // содержимым). role-router сбрасывает inline display, поэтому
-  // нужен явный hide здесь.
-  hide('.legacy-overview-block');
-
   // Контракты доступны сотруднику (read-only) — показываем sidebar-link.
   show('#nav-item-contracts');
 

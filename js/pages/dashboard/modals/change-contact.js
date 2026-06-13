@@ -237,6 +237,7 @@ export function wireChangeContact(ctx) {
         target:  _newValue,
         type:    _type,
         purpose: _type === 'email' ? 'change_email' : 'change_phone',
+        resend:  true,
       });
       const cooldown = Number(resp?.data?.cooldown) || 60;
       _codeCtl?.startResendTimer(cooldown);

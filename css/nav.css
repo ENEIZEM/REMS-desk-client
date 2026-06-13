@@ -1,0 +1,46 @@
+/* ── 14. Tabs ─────────────────────────────────────────────────── */
+.tab-list {
+  display: flex;
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--clr-border);
+  margin-bottom: var(--space-6);
+}
+.tab-trigger {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--clr-text-secondary);
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color var(--trans-fast), border-color var(--trans-fast);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.tab-trigger:hover { color: var(--clr-text-primary); }
+.tab-trigger.active { color: var(--clr-accent); border-bottom-color: var(--clr-accent); }
+.tab-panel  { display: none; }
+.tab-panel.active { display: block; }
+
+/* ── 15. Table ────────────────────────────────────────────────── */
+.table-wrapper { overflow-x: auto; border: 1px solid var(--clr-border); border-radius: var(--radius-lg); }
+.table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+.table th {
+  background: var(--clr-bg-subtle);
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  font-weight: 600;
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--clr-text-muted);
+  border-bottom: 1px solid var(--clr-border);
+  white-space: nowrap;
+}
+.table td { padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--clr-border); vertical-align: middle; }
+.table tr:last-child td { border-bottom: none; }
+.table tbody tr:hover { background: var(--clr-bg-subtle); }
+

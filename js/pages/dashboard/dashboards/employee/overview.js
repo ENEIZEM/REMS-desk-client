@@ -17,7 +17,34 @@ import { setNotificationsTarget, loadNotifications } from '../../notifications.j
 import { setAvatar } from '../../format.js';
 import { roleBadgeDescriptor, orgStatusBadge, renderIconBadge } from '../../badges.js';
 import { openModal, closeModal, setLoading } from '../../ui-helpers.js';
-import { mountRequests, renderAll as renderRequests } from '../_shared/requests.js';
+import {
+  mountRequests, renderAll as renderRequests,
+  getRequests, onRequestsUpdated, periodStart,
+} from '../_shared/requests.js';
+
+/* Статистика сотрудника из загруженной ленты заявок. Раньше она читала
+   user.stats, которого backend никогда не отдавал — все значения были 0. */
+function computeEmployeeStats(list, selfId, myOrgId, period) {
+  const from = periodStart(period);
+  const inP  = (iso) => !from || (iso && new Date(iso) >= from);
+  const mineAssigned = (r) => Number(r.assigned_to_id) === Number(selfId);
+  const mineAuthored = (r) => Number(r.author_id) === Number(selfId);
+
+  const closedByMe   = list.filter(r => r.status === 'closed' && mineAssigned(r) && inP(r.closed_at));
+  const ratedInt     = closedByMe.filter(r => r.rating != null && r.is_internal);
+  const ratedPartner = closedByMe.filter(r => r.rating != null && !r.is_internal);
+  const avg = (arr) => arr.length ? arr.reduce((s, r) => s + Number(r.rating), 0) / arr.length : null;
+  return {
+    requests_in_work:        list.filter(r => mineAssigned(r) && ['assigned', 'in_progress'].includes(r.status)).length,
+    pool_free:               list.filter(r => r.status === 'new' && Number(r.contractor_org_id) === Number(myOrgId)).length,
+    requests_closed_period:  closedByMe.length,
+    requests_opened_period:  list.filter(r => mineAuthored(r) && inP(r.created_at)).length,
+    requests_handled:        ratedInt.length,
+    rating_avg:              avg(ratedInt),
+    partner_handled:         ratedPartner.length,
+    rating_avg_partner:      avg(ratedPartner),
+  };
+}
 
 export function mountEmployeeOverview(profile) {
   const slot = document.querySelector('#employee-overview-slot');
@@ -132,6 +159,15 @@ export function mountEmployeeOverview(profile) {
 
   // Заявки: загрузка ленты + кнопка «Создать» + дорожная карта (общий модуль).
   mountRequests(profile).catch(err => console.warn('[employee overview requests]', err));
+
+  // Статистика пересчитывается из ленты — обновляем при каждой её
+  // перерисовке (первая загрузка, socket-синк, действия по заявкам).
+  onRequestsUpdated('emp-overview-stats', () => {
+    const body = slot.querySelector('#employee-stats-body');
+    if (!body) return;
+    body.innerHTML = renderStatsRows(user, org, activePeriod);
+    applyTranslations();
+  });
 
   // Re-render на смену языка: пересоберём dynamic-куски (stats rows,
   // picker label), т.к. они построены через template literal с t()
@@ -257,7 +293,7 @@ function renderRequestsEmpty(filter) {
 
 function renderStatsRows(user, org, period) {
   const role = user.org_role || 'employee';
-  const stats = user.stats || {};
+  const stats = computeEmployeeStats(getRequests(), user.id, org?.id, period);
   const inWork = Number(stats.requests_in_work ?? 0);
   const poolFree = Number(stats.pool_free ?? 0);
   const closedByMe = Number(stats.requests_closed_period ?? 0);
@@ -265,7 +301,8 @@ function renderStatsRows(user, org, period) {
   const handledN = Number(stats.requests_handled ?? 0);
   const hasRating = stats.rating_avg != null && handledN > 0;
   const ratingAvg = hasRating ? Number(stats.rating_avg).toFixed(1) : '';
-  const hasPartnerRating = false; // cross-org rating пока не реализован
+  const hasPartnerRating = stats.rating_avg_partner != null && Number(stats.partner_handled) > 0;
+  const partnerAvg = hasPartnerRating ? Number(stats.rating_avg_partner).toFixed(1) : '';
   // Цветной chip роли (унифицированные цвета: owner=orange, employee=rose).
   const roleChipClass = role === 'owner' ? 'chip-owner'
     : role === 'sys_admin' ? 'chip-sys-admin' : 'chip-employee';
@@ -312,7 +349,7 @@ function renderStatsRows(user, org, period) {
       <span class="profile-row-label" data-i18n="employee.stat_rating_partner">Средняя оценка моей работы партнёрами</span>
       <span class="profile-row-value">
         ${hasPartnerRating
-          ? ``
+          ? `${partnerAvg}<i class="ph-duotone ph-star stat-rating-star" aria-hidden="true" style="margin-left:.35rem;"></i>`
           : `<span class="stats-empty" data-i18n="employee.stat_rating_empty">Нет оценок</span>`}
       </span>
     </div>

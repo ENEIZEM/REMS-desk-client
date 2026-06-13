@@ -1,0 +1,244 @@
+/* ── 11. Navbar / Header — floating frosted-glass chrome ───────────
+   Same chrome as the landing's `body.landing > .navbar`: floats above
+   the page with a blur backdrop, sits in its own rounded tile. The
+   dashboard's content area lives BELOW the navbar (separated by gaps)
+   AND to the RIGHT of the floating sidebar (when open).
+
+   Layout tokens (also live in :root below):
+     --float-gap          page padding for every floating tile (1rem)
+     --float-navbar-h     the navbar's own height               (3.5rem)
+     --float-toggle-size  the corner toggle button              (3.5rem, equal to navbar h)
+     --float-sidebar-w    the sidebar tile width                (240px)
+
+   The sidebar offset (which controls main-content's left margin) is
+   resolved into a single var so transitions can interpolate it:
+     [data-sidebar="open"]   → open  offset
+     [data-sidebar="closed"] → closed offset
+*/
+:root {
+  --float-gap:         1rem;
+  --float-navbar-h:    3.5rem;
+  --float-toggle-size: 3.5rem;
+  --float-sidebar-w:   240px;
+  /* Single source of truth for the "central column" geometry: same
+     max-width and side margins as the landing navbar/content, so the
+     dashboard's chrome aligns left/right with the marketing pages. */
+  --float-column-max:  var(--landing-navbar, 1540px);
+}
+
+/* Page bg under all floating tiles. */
+body[data-sidebar] { background: var(--clr-bg-subtle); }
+
+/* Navbar — centered with the SAME side margins as the landing navbar
+   (1rem from viewport edges, max-width --float-column-max). Sidebar
+   state no longer shifts the navbar — the toggle button just sits on
+   top of the navbar's left edge when both are visible, which is fine
+   (chrome over chrome, z-indexed). */
+/* Base .navbar — positioning-agnostic. Both landing & dashboard set
+   their own `position` + offsets via more specific selectors below.
+   z-index: 200 — намеренно ВЫШЕ .modal-backdrop (100), чтобы
+   полупрозрачный backdrop НЕ накрывал navbar при открытой модалке;
+   юзер должен иметь доступ к лангсвитчеру в navbar'е пока он
+   находится в любой modal'е. */
+.navbar {
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 0 1.25rem;
+  height: var(--float-navbar-h);
+  border-radius: var(--radius-2xl);
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .navbar { background: rgba(255, 255, 255, 0.94); }
+}
+
+/* Dashboard navbar — fixed, centered with the SAME column geometry as
+   the landing nav. Scope is `body[data-sidebar]` so this only applies
+   on the dashboard (which is the only page that owns that attribute). */
+body[data-sidebar] > .navbar {
+  position: fixed;
+  top: var(--float-gap);
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 2 * var(--float-gap));
+  max-width: var(--float-column-max);
+}
+
+/* Floating square toggle — same dimensions as the navbar height, but
+   PLAIN (no blur) with the same thin border the content cards use.
+   Keeps a small drop-shadow so it still reads as a floating tile. */
+.float-toggle {
+  position: fixed;
+  top: var(--float-gap);
+  left: var(--float-gap);
+  width: var(--float-toggle-size);
+  height: var(--float-toggle-size);
+  /* z-index в паре с .navbar (200) — оба выше .modal-backdrop. */
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: var(--radius-2xl);
+  background: var(--clr-surface);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+  border: 1px solid var(--clr-border);
+  color: var(--clr-navy);
+  transition: color var(--trans-normal), background var(--trans-normal);
+}
+.float-toggle:hover { color: var(--clr-accent); }
+.float-toggle i { font-size: 1.35rem; }
+.navbar-brand { display: flex; align-items: center; gap: var(--space-3); text-decoration: none; flex-shrink: 0; }
+.navbar-logo {
+  width: 2rem; height: 2rem;
+  background: var(--clr-navy);
+  border-radius: var(--radius-md);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 1.1rem;
+}
+.navbar-title    { font-size: var(--text-sm); font-weight: 700; color: var(--clr-text-primary); line-height: 1.2; }
+.navbar-subtitle { font-size: var(--text-xs); color: var(--clr-text-muted); font-weight: 400; }
+.navbar-spacer   { flex: 1; }
+.navbar-actions  { display: flex; align-items: center; gap: var(--space-2); }
+
+/* Bell button in the dashboard navbar — navy "accent grey" icon so it
+   matches the landing nav-bell tone. Identical hover-pop to accent. */
+#btn-notifications {
+  --btn-icon:       var(--clr-navy);
+  --btn-icon-hover: var(--clr-accent);
+}
+
+/* ── 12. Sidebar — floating, slides on toggle ─────────────────────
+   Position model: `absolute` inside `.app-layout` (which is itself
+   `relative`). That makes the sidebar's bottom edge follow the
+   app-layout's bottom edge — and app-layout's height grows with the
+   content. Net effect: SHORT tabs (profile, org) get a SHORT sidebar
+   that ends in line with the content; tall tabs (long lists) get a
+   tall sidebar that follows the content downward.
+
+   PLAIN white tile, thin border (matches content cards), NO shadow —
+   per spec, shadow only lives on the toggle button and the navbar. */
+.app-layout {
+  display: block;
+  position: relative;            /* anchor for the absolute-positioned sidebar */
+  /* The layout box hugs its content. No min-height — short tabs
+     collapse the box, sidebar follows. `padding-bottom` is dropped
+     because main-content has its own `padding-bottom: var(--float-gap)`;
+     adding both would double the floor and leave the sidebar dangling
+     ~1rem below the last content row. Now sidebar `bottom: 1rem` lands
+     exactly at main-content's content edge. */
+  padding-top: calc(var(--float-gap) + var(--float-navbar-h) + var(--float-gap));
+  padding-bottom: 0;
+}
+
+/* До монтажа дашборда (role-router определяет роль и скрывает лишние
+   пункты) держим навигацию невидимой — иначе на ~секунду виден полный
+   статический набор вкладок. visibility (не display) сохраняет раскладку,
+   чтобы пункты не «прыгали» при появлении. Класс ставится в loadProfile. */
+body:not(.rems-nav-ready) .sidebar nav { visibility: hidden; }
+
+.sidebar {
+  position: absolute;
+  top: calc(var(--float-gap) + var(--float-navbar-h) + var(--float-gap));
+  bottom: var(--float-gap);
+  left: var(--float-gap);
+  width: var(--float-sidebar-w);
+  z-index: 49;
+  display: flex;
+  flex-direction: column;
+  padding: 1rem 0.85rem;
+  overflow-y: auto;
+  /* Match content cards (.card uses --radius-xl) so the sidebar tile
+     reads as part of the same family of containers, not its own
+     visual outlier. Previously --radius-2xl was just a touch heavier
+     than the rest of the page chrome. */
+  border-radius: var(--radius-xl);
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  /* Slide animates the WHOLE tile off-page when closed. */
+  transition: transform var(--trans-normal), opacity var(--trans-normal);
+}
+body[data-sidebar="closed"] .sidebar {
+  transform: translateX(calc(-100% - var(--float-gap) - 4px));
+  opacity: 0;
+  pointer-events: none;
+}
+.nav-section       { margin-bottom: var(--space-6); }
+/* «Продолжение» секции — нет верхнего отступа, чтобы пункты шли
+   единым списком без визуального разрыва, и без header-label сверху. */
+.nav-section--continuation { margin-top: calc(-1 * var(--space-6)); }
+.nav-section-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--clr-text-muted);
+  padding: 0 var(--space-3);
+  margin-bottom: var(--space-2);
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--clr-text-secondary);
+  cursor: pointer;
+  transition: background var(--trans-fast), color var(--trans-fast);
+  text-decoration: none;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+}
+.nav-item i  { font-size: 1rem; flex-shrink: 0; }
+.nav-item:hover { background: var(--clr-bg-muted); color: var(--clr-text-primary); }
+.nav-item.active { background: var(--clr-accent-light); color: var(--clr-accent); }
+.nav-item.active i { color: var(--clr-accent); }
+.nav-badge {
+  margin-left: auto;
+  background: var(--clr-error);
+  color: #fff;
+  font-size: 0.625rem;
+  font-weight: 700;
+  padding: 0.1rem 0.35rem;
+  border-radius: var(--radius-full);
+  min-width: 1.1rem;
+  text-align: center;
+}
+
+/* ── 13. Main content ─────────────────────────────────────────── */
+/* Main content — explicit MIRROR margins that account for the sidebar.
+   Both sides use the SAME value: page-gap + sidebar-width + inter-block-gap.
+   That makes the sidebar→content gap match the gap between blocks
+   INSIDE the content column, and the right side mirrors that exact
+   number so the layout looks symmetric regardless of sidebar state
+   (sidebar overlays — it doesn't push). Toggling the sidebar doesn't
+   reflow anything. */
+.main-content {
+  min-width: 0;
+  margin-left:  calc(var(--float-gap) + var(--float-sidebar-w) + var(--space-6));
+  margin-right: calc(var(--float-gap) + var(--float-sidebar-w) + var(--space-6));
+  max-width: none;
+  padding: 1.5rem 0 var(--float-gap) 0;
+  background: transparent;
+}
+/* Tab-level header — title + concrete one-line description. The
+   indent matches the `.card`'s INTERNAL left padding (--space-6 =
+   1.5rem), so the title's first character sits on the same x-axis
+   as the text INSIDE the cards below. Cards have their own outer
+   left edge at main-content's edge; their content is pushed in by
+   1.5rem of card padding — the title now lines up with THAT inner
+   content edge, not the cards' outer borders. */
+.page-header   { margin-bottom: var(--space-5); padding-left: var(--space-6); }
+.page-title    { font-size: var(--text-2xl); font-weight: 700; }
+.page-desc     { font-size: var(--text-sm); color: var(--clr-text-secondary); margin-top: var(--space-1); }
+

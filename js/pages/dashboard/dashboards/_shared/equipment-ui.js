@@ -154,7 +154,7 @@ export function equipmentCardHTML(eq, { selfId, isOwner, search } = {}) {
   ].filter(Boolean);
 
   return `
-    <div class="equipment-card" data-eq-card="${eq.id}">
+    <div class="equipment-card eq-tone-${escapeHTML(eq.status || 'operational')}" data-eq-card="${eq.id}">
       <div class="equipment-card-top">
         ${photoHTML}
         <div class="equipment-card-main">

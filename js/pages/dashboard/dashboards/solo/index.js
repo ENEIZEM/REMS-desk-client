@@ -21,7 +21,6 @@ export function bootSoloDashboard(profile) {
   hide('[data-role-only="owner"]');
   hide('[data-role-only="employee"]');
   hide('.nav-item[data-tab="requests"]');
-  hide('.nav-item[data-tab="equipment"]');
   hide('.nav-item[data-tab="catalog"]');
   hide('.nav-item[data-tab="partners"]');
   hide('.nav-item[data-tab="contracts"]');
@@ -46,7 +45,6 @@ export function bootSoloDashboard(profile) {
   // Скрываем все остальные tab-panel'ы — solo home единственный visible.
   hide('#tab-overview');
   hide('#tab-requests');
-  hide('#tab-equipment');
   hide('#tab-catalog');
   hide('#tab-partners');
   hide('#tab-members');

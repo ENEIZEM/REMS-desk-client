@@ -127,11 +127,14 @@ export const auth = {
    * backend performs eager validity / capacity checks BEFORE issuing the code,
    * so the frontend never advances past step 1 with an invalid org_id.
    */
-  sendCode: (contact, purpose = 'register', organizationId = null) => request('POST', '/auth/code', {
+  sendCode: (contact, purpose = 'register', organizationId = null, { resend = false } = {}) => request('POST', '/auth/code', {
     target:  contact,
     type:    detectContactType(contact),
     purpose,
     ...(organizationId != null && { organization_id: organizationId }),
+    // resend=true — только с явной кнопки «Отправить повторно». Без него
+    // backend реюзает живой код (навигация «назад → далее» его не убивает).
+    ...(resend && { resend: true }),
   }),
 
   /** Verify a code. Backend: POST /api/auth/verify { target, code, purpose }. */
@@ -221,7 +224,8 @@ export const profile = {
 // ─────────────────────────────────────────────────────────────────
 export const membership = {
   status:  () => request('GET',  '/users/membership/status'),
-  reapply: () => request('POST', '/users/membership/reapply', {}),
+  /** Повторная заявка после reject/suspend. Backend требует organization_id. */
+  reapply: (organization_id) => request('POST', '/users/membership/reapply', { organization_id }),
   /** Solo-юзер запрашивает membership в орге по ID. message — опционально. */
   join:    (organization_id, message) => request('POST', '/users/membership/join', {
     organization_id,
@@ -376,7 +380,7 @@ export const notifications = {
 //
 // entity_type values:
 //   'user' | 'organization' | 'equipment' | 'request_attachments'
-//   'fault_category' | 'equipment_category'
+//   'equipment_category' | 'contract'
 // ─────────────────────────────────────────────────────────────────
 export const media = {
   /**

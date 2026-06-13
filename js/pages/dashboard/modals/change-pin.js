@@ -369,7 +369,7 @@ export function wireChangePin(ctx) {
     refreshBothGuards();
   }
 
-  async function sendStepUpCode() {
+  async function sendStepUpCode(isResend = false) {
     if (!_stepUp.target || !_stepUp.type) {
       return showAlertText('err-chpin', 'err-chpin-text', t('errors.required'));
     }
@@ -379,6 +379,9 @@ export function wireChangePin(ctx) {
         target:  _stepUp.target,
         type:    _stepUp.type,
         purpose: 'change_password',
+        // resend только с явной кнопки — повторный вход в code-phase
+        // реюзает живой код, а не перевыпускает его.
+        ...(isResend && { resend: true }),
       });
       setStepUpPhase('code');
       codeInputs.forEach(i => { i.value = ''; i.classList.remove('filled', 'error'); });
@@ -387,8 +390,8 @@ export function wireChangePin(ctx) {
       showAlertText('err-chpin', 'err-chpin-text', errorMessage(err));
     }
   }
-  // Resend по кнопке внутри code-phase — тот же sendCode.
-  document.querySelector('#btn-chpin-resend')?.addEventListener('click', sendStepUpCode);
+  // Resend по кнопке внутри code-phase — тот же sendCode, но с resend-флагом.
+  document.querySelector('#btn-chpin-resend')?.addEventListener('click', () => sendStepUpCode(true));
 
   document.querySelector('#btn-open-change-pin')?.addEventListener('click', () => {
     const hasPin = !!_ctx.getUserProfile()?.has_pin;

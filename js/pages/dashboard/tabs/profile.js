@@ -14,6 +14,15 @@ import { fmtDate, setAvatar } from '../format.js';
 export function renderProfileTab(user, role, isOwner, ownerOrgCreatedAt) {
   // ── Identity strip ─────────────────────────────────────────
   setAvatar(document.querySelector('#profile-initials'), document.querySelector('#profile-avatar-img'), user);
+  // Кольцо аватара: sys_admin → фиолетовое (перебивает роль), иначе по
+  // роли в орге (owner=золото, employee=роза). Solo/pending — без кольца.
+  const avEl = document.querySelector('#profile-avatar');
+  if (avEl) {
+    avEl.classList.remove('avatar--ring-owner', 'avatar--ring-employee', 'avatar--ring-admin');
+    if (user.global_role === 'sys_admin') avEl.classList.add('avatar--ring-admin');
+    else if (user.membership_status === 'approved' && role === 'owner') avEl.classList.add('avatar--ring-owner');
+    else if (user.membership_status === 'approved' && role === 'employee') avEl.classList.add('avatar--ring-employee');
+  }
   document.querySelector('#profile-fullname').textContent      = user.full_name || '—';
   document.querySelector('#profile-userid-inline').textContent = `#${user.id ?? '—'}`;
   document.querySelector('#profile-head-email').textContent    = user.email_masked || '';

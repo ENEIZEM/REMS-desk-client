@@ -1,0 +1,203 @@
+<!-- ═══ Requests: create / edit (2 шага; шаги визуально не выделены —
+     навигация только кнопками Далее / Назад в подвале) ═══════════ -->
+<div class="modal-backdrop" id="request-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-card-icon navy"><i class="ph-bold ph-clipboard-text"></i></div>
+      <div class="modal-header-text">
+        <h3 class="modal-title" id="rq-modal-title" data-i18n="requests.create_title">Новая заявка</h3>
+        <p class="modal-subtitle" data-i18n="requests.create_subtitle">Заполните данные заявки</p>
+      </div>
+      <button class="modal-close" data-close-modal="request-modal"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <!-- ── Шаг 1: тип заявки · контракт · приоритет/SLA ───────────── -->
+      <div class="modal-step" id="rq-step-1">
+        <!-- Тип заявки -->
+        <div class="form-group">
+          <label class="form-label"><span data-i18n="requests.type_label">Тип заявки</span> <span class="req">*</span></label>
+          <div class="role-grid" role="radiogroup" style="grid-template-columns:1fr 1fr;">
+            <label class="role-card contact-card role-card--neutral selected" data-rq-type="internal">
+              <input type="radio" name="rq-type" value="internal" class="sr-only" checked>
+              <div class="role-card-icon"><i class="ph ph-buildings"></i></div>
+              <div class="contact-card-text">
+                <div class="role-card-label" data-i18n="requests.type_internal">Внутренняя</div>
+                <div class="role-card-desc" data-i18n="requests.type_internal_desc">Силами своей организации</div>
+              </div>
+            </label>
+            <label class="role-card contact-card role-card--neutral" data-rq-type="contract">
+              <input type="radio" name="rq-type" value="contract" class="sr-only">
+              <div class="role-card-icon"><i class="ph ph-handshake"></i></div>
+              <div class="contact-card-text">
+                <div class="role-card-label" data-i18n="requests.type_contract">По контракту</div>
+                <div class="role-card-desc" data-i18n="requests.type_contract_desc">Силами подрядчика</div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Контракт (только для типа «по контракту») -->
+        <div class="form-group" id="rq-contract-group" style="display:none;">
+          <label class="form-label" for="rq-contract"><span data-i18n="requests.contract_label">Контракт</span> <span class="req">*</span></label>
+          <select id="rq-contract" class="form-input"></select>
+          <p class="form-helper" id="rq-no-contracts" style="display:none; color:var(--clr-text-muted); font-size:var(--text-xs); margin-top:.35rem;"
+             data-i18n="requests.no_contracts">Активных контрактов нет — доступна только внутренняя заявка.</p>
+        </div>
+
+        <!-- Приоритет = выбор SLA-плашки (цвет + часы реакции). Источник SLA:
+             контракт (по контракту) или внутренние SLA орг (внутренняя). -->
+        <div class="form-group">
+          <label class="form-label"><span data-i18n="requests.sla_priority_label">Приоритет и срок реакции (SLA)</span> <span class="req">*</span></label>
+          <div class="rq-sla-grid" id="rq-sla-grid" role="radiogroup"></div>
+          <p class="rq-sla-source" id="rq-sla-source" style="font-size:var(--text-xs); color:var(--clr-text-muted); margin:.4rem 0 0;"></p>
+          <div class="form-error" id="err-rq-priority"><i class="ph ph-warning-circle"></i><span></span></div>
+        </div>
+      </div>
+
+      <!-- ── Шаг 2: техника · описание · вложения ───────────────────── -->
+      <div class="modal-step" id="rq-step-2" style="display:none;">
+        <!-- Техника — кастомный список (фото + бренд/модель + мета + статус).
+             #rq-equipment (hidden) хранит выбранный id для валидации/submit. -->
+        <div class="form-group">
+          <label class="form-label"><span data-i18n="requests.equipment_label">Неисправная техника</span> <span class="req">*</span></label>
+          <input type="hidden" id="rq-equipment">
+          <div class="rq-eq-list" id="rq-equipment-list" role="radiogroup" aria-label="Техника"></div>
+          <div class="form-error" id="err-rq-equipment"><i class="ph ph-warning-circle"></i><span></span></div>
+        </div>
+
+        <!-- Описание -->
+        <div class="form-group">
+          <label class="form-label" for="rq-desc"><span data-i18n="requests.desc_label">Описание проблемы</span> <span class="req">*</span></label>
+          <textarea id="rq-desc" class="form-input" rows="4" maxlength="5000" data-i18n-ph="requests.desc_ph" placeholder="Что сломалось, как проявляется…"></textarea>
+          <div class="form-error" id="err-rq-desc"><i class="ph ph-warning-circle"></i><span></span></div>
+        </div>
+
+        <!-- Вложения (квадраты в ряд: фото-миниатюры + квадрат «+»).
+             Срок (due_date) НЕ вводится — считается из SLA при взятии в работу. -->
+        <div class="form-group">
+          <label class="form-label" data-i18n="requests.attachments_label">Вложения (фото/PDF)</label>
+          <div class="request-attach-grid" id="rq-c-attach-list"></div>
+        </div>
+      </div>
+
+      <div class="alert alert-error hidden" id="err-rq" style="margin-top:.75rem;"><i class="ph ph-warning-circle"></i><span id="err-rq-text"></span></div>
+    </div>
+    <div class="modal-footer">
+      <!-- Шаг 1: Далее + Отмена -->
+      <button class="btn btn-primary is-pending" id="btn-rq-next">
+        <span data-i18n="common.next">Далее</span> <i class="ph ph-arrow-right"></i>
+      </button>
+      <button class="btn btn-secondary" id="btn-rq-cancel" data-close-modal="request-modal" data-i18n="common.cancel">Отмена</button>
+      <!-- Шаг 2: Создать заявку + Назад -->
+      <button class="btn btn-primary is-pending" id="btn-rq-submit" style="display:none;">
+        <i class="ph ph-check"></i> <span id="rq-submit-label" data-i18n="requests.create_confirm">Создать заявку</span>
+      </button>
+      <button class="btn btn-secondary" id="btn-rq-back" style="display:none;">
+        <i class="ph ph-arrow-left"></i> <span data-i18n="common.back">Назад</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Requests: roadmap (detail) ════════════════════════════════ -->
+<div class="modal-backdrop" id="request-roadmap-modal">
+  <div class="modal modal-roadmap">
+    <div class="modal-header">
+      <div class="modal-card-icon navy"><i class="ph-bold ph-map-trifold"></i></div>
+      <div class="modal-header-text">
+        <h3 class="modal-title"><span id="rrm-number">—</span></h3>
+        <p class="modal-subtitle" id="rrm-sub">—</p>
+      </div>
+      <button class="modal-close" data-close-modal="request-roadmap-modal"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="modal-body request-roadmap-body">
+      <div class="request-roadmap-main">
+        <div class="request-roadmap-summary" id="rrm-summary"></div>
+        <div class="request-history" id="rrm-history"></div>
+      </div>
+    </div>
+    <div class="modal-footer" id="rrm-actions"></div>
+  </div>
+</div>
+
+<!-- ═══ Requests: finish (resolution + attachments) ═══════════════ -->
+<div class="modal-backdrop" id="request-finish-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-card-icon teal"><i class="ph-bold ph-check-circle"></i></div>
+      <div class="modal-header-text">
+        <h3 class="modal-title" data-i18n="requests.finish_title">Завершить заявку</h3>
+        <p class="modal-subtitle" data-i18n="requests.finish_subtitle">Опишите выполненную работу</p>
+      </div>
+      <button class="modal-close" data-close-modal="request-finish-modal"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label" for="rq-resolution"><span data-i18n="requests.resolution_label">Что сделано</span> <span class="req">*</span></label>
+        <textarea id="rq-resolution" class="form-input" rows="4" maxlength="5000" data-i18n-ph="requests.resolution_ph" placeholder="Замена детали, настройка…"></textarea>
+        <div class="form-error" id="err-rq-resolution"><i class="ph ph-warning-circle"></i><span></span></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" data-i18n="requests.attachments_label">Вложения (фото/PDF)</label>
+        <div class="request-attach-grid" id="rq-attach-list"></div>
+      </div>
+      <div class="alert alert-error hidden" id="err-rq-finish"><i class="ph ph-warning-circle"></i><span id="err-rq-finish-text"></span></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary is-pending" id="btn-rq-finish-confirm"><i class="ph ph-check"></i> <span data-i18n="requests.finish_confirm">Завершить</span></button>
+      <button class="btn btn-secondary" data-close-modal="request-finish-modal" data-i18n="common.cancel">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Requests: close (rating) ══════════════════════════════════ -->
+<div class="modal-backdrop" id="request-close-modal">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-card-icon gold"><i class="ph-bold ph-star"></i></div>
+      <div class="modal-header-text">
+        <h3 class="modal-title" data-i18n="requests.close_title">Закрыть и оценить</h3>
+        <p class="modal-subtitle" data-i18n="requests.close_subtitle">Оцените выполненную работу</p>
+      </div>
+      <button class="modal-close" data-close-modal="request-close-modal"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="request-rating" id="rq-rating" role="radiogroup" aria-label="rating">
+        <i class="ph ph-star" data-star="1"></i><i class="ph ph-star" data-star="2"></i><i class="ph ph-star" data-star="3"></i><i class="ph ph-star" data-star="4"></i><i class="ph ph-star" data-star="5"></i>
+      </div>
+      <div class="form-error" id="err-rq-rating"><i class="ph ph-warning-circle"></i><span></span></div>
+      <div class="form-group" style="margin-top:.5rem;">
+        <label class="form-label" for="rq-rating-comment" data-i18n="requests.rating_comment_label">Комментарий</label>
+        <textarea id="rq-rating-comment" class="form-input" rows="2" maxlength="2000" data-i18n-ph="requests.rating_comment_ph" placeholder="Необязательно"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" id="btn-rq-close-confirm"><i class="ph ph-check"></i> <span data-i18n="requests.close_confirm">Закрыть заявку</span></button>
+      <button class="btn btn-secondary" data-close-modal="request-close-modal" data-i18n="common.cancel">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Requests: cancel confirm ══════════════════════════════════ -->
+<div class="modal-backdrop" id="request-cancel-modal">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-card-icon" style="background:var(--clr-error-light); color:var(--clr-error);"><i class="ph-bold ph-x-circle"></i></div>
+      <div class="modal-header-text">
+        <h3 class="modal-title" data-i18n="requests.cancel_title">Отменить заявку</h3>
+        <p class="modal-subtitle" data-i18n="requests.cancel_subtitle">Действие необратимо</p>
+      </div>
+      <button class="modal-close" data-close-modal="request-cancel-modal"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label" for="rq-cancel-comment" data-i18n="requests.cancel_reason_label">Причина (необязательно)</label>
+        <textarea id="rq-cancel-comment" class="form-input" rows="2" maxlength="2000" data-i18n-ph="requests.cancel_reason_ph" placeholder="Например: решено своими силами"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="btn-rq-cancel-confirm"><i class="ph ph-x-circle"></i> <span data-i18n="requests.cancel_confirm">Отменить заявку</span></button>
+      <button class="btn btn-secondary" data-close-modal="request-cancel-modal" data-i18n="common.cancel">Назад</button>
+    </div>
+  </div>
+</div>

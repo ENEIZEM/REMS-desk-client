@@ -65,6 +65,9 @@ export function populateOrgTab(org, role, canEditOrg, canEditLim, isSiteAdmin = 
   const logoOvr  = document.querySelector('#org-logo-overlay');
   if (canEditOrg) { logoWrap.classList.add('editable'); logoOvr.style.display = ''; }
   else            { logoWrap.classList.remove('editable'); logoOvr.style.display = 'none'; }
+  // Логотип орги sys_admin'а — фиолетовое кольцо (как у его аватара).
+  const logoAv = document.querySelector('#org-logo-avatar');
+  if (logoAv) logoAv.classList.toggle('avatar--ring-admin', !!isSiteAdmin);
 
   // ── About card — container-less chips for read-only rows ───
   // org_type row removed alongside the column itself.

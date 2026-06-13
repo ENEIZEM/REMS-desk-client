@@ -1,0 +1,481 @@
+/* ── 18. Auth layout ──────────────────────────────────────────── */
+.auth-page { min-height: 100vh; background: var(--clr-bg-subtle); display: flex; flex-direction: column; }
+
+/* Hero-вариант (.auth-page--hero) применяется на login/register: вместо
+   плоского серого фона позади всего интерфейса крутится VANTA WAVES
+   (тот же что на landing), поверх него лежит translucent blur-слой —
+   как у PIN-lock overlay'я. Card'ы регистрации и формы плывут поверх. */
+.auth-page--hero { background: transparent; position: relative; }
+#auth-hero-bg {
+  position: fixed; inset: 0; z-index: -2;
+  background: var(--clr-navy);
+}
+#auth-hero-bg .vanta-canvas { position: absolute; inset: 0; }
+/* Blur снижен с 14px → 4px чтобы юзер мог разглядеть очертания
+   движущейся анимации. Translucent-слой светлее (0.35 вместо 0.55) +
+   Vanta WAVES сам подкручен потемнее (color 0x1a2842 — darker navy)
+   ниже в JS init'е, чтобы контраст hero ↔ blur оставался читаемым. */
+#auth-hero-blur {
+  position: fixed; inset: 0; z-index: -1;
+  background: rgb(248 250 252 / 0.35);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+.auth-page--hero .auth-header {
+  background: rgb(255 255 255 / 0.65);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgb(255 255 255 / 0.4);
+}
+
+.auth-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-6);
+  background: var(--clr-bg);
+  border-bottom: 1px solid var(--clr-border);
+}
+.auth-brand { display: flex; align-items: center; gap: var(--space-3); text-decoration: none; }
+.auth-brand-logo {
+  width: 2rem; height: 2rem;
+  background: var(--clr-navy);
+  border-radius: var(--radius-md);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 1rem;
+}
+.auth-brand-name { font-weight: 700; font-size: var(--text-base); color: var(--clr-text-primary); }
+.auth-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8) var(--space-4);
+}
+.auth-card {
+  width: 100%;
+  max-width: 440px;
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-2xl);
+  padding: var(--space-8);
+  box-shadow: var(--shadow-lg);
+}
+.auth-card-wide { max-width: 560px; }
+/* Auth-card header — icon-tile on the LEFT, title+subtitle stack on
+   the right, vertically centred against each other so longer subtitle
+   lines stay balanced with a single icon. The tile is always square
+   thanks to aspect-ratio: 1 (subtitle wraps grow the text block but
+   never deform the icon). */
+.auth-card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+.auth-card-header-text { flex: 1; min-width: 0; }
+.auth-card-icon {
+  width: 3rem;
+  aspect-ratio: 1 / 1;
+  background: var(--clr-accent-light);
+  color: var(--clr-accent);
+  border-radius: var(--radius-lg);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+.auth-title    { font-size: var(--text-2xl); font-weight: 700; }
+.auth-subtitle { font-size: var(--text-sm); color: var(--clr-text-secondary); margin-top: var(--space-1); }
+/* Step-only auth cards (register-step subtitles inside a steps wizard)
+   need a touch more breathing room below them; the header itself is
+   centered vertically so we keep the gap in the auth-subtitle margin. */
+.auth-subtitle.spaced { margin-bottom: var(--space-6); }
+
+/* ── 19. Steps (registration wizard) ─────────────────────────── */
+.steps-track { display: flex; align-items: center; margin-bottom: var(--space-8); }
+.step-item   { display: flex; align-items: center; flex: 1; }
+.step-circle {
+  width: 2rem; height: 2rem; border-radius: 50%;
+  border: 2px solid var(--clr-border);
+  background: var(--clr-surface);
+  display: flex; align-items: center; justify-content: center;
+  font-size: var(--text-xs); font-weight: 600;
+  color: var(--clr-text-muted);
+  flex-shrink: 0;
+  transition: all var(--trans-normal);
+  position: relative; z-index: 1;
+}
+.step-circle.done   { background: var(--clr-accent); border-color: var(--clr-accent); color: #fff; }
+.step-circle.active { border-color: var(--clr-accent); color: var(--clr-accent); box-shadow: 0 0 0 4px rgb(15 207 152 / 0.15); }
+.step-line  { flex: 1; height: 2px; background: var(--clr-border); transition: background var(--trans-slow); }
+.step-line.done { background: var(--clr-accent); }
+
+/* ── 20. Role cards ───────────────────────────────────────────── */
+.role-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+.role-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 2px solid var(--clr-border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: border-color var(--trans-fast), background var(--trans-fast), box-shadow var(--trans-fast);
+  background: var(--clr-surface);
+  user-select: none;
+}
+/* Neutral hover — keeps the role-specific accents reserved for SELECTED
+   state. Hovering doesn't pre-commit to a colour; selection does. */
+.role-card:hover {
+  border-color: var(--clr-text-muted);
+  background: var(--clr-bg-subtle);
+}
+.role-card-icon {
+  width: 2.25rem; height: 2.25rem;
+  border-radius: var(--radius-md);
+  background: var(--clr-bg-muted);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem; color: var(--clr-text-secondary);
+  transition: background var(--trans-fast), color var(--trans-fast);
+}
+.role-card-label { font-size: var(--text-sm); font-weight: 600; color: var(--clr-text-primary); }
+.role-card-desc  { font-size: var(--text-xs); color: var(--clr-text-secondary); line-height: 1.4; }
+
+/* ── Selected role-card colour variants ───────────────────────────
+   Each role wears its own thematic colour when selected. Mirrors the
+   chip palette so the visual language stays consistent: icon uses the
+   chip-text colour, the card background reads as a softer tint (like
+   the .badge-role-* pills in the org header), and the label echoes the
+   icon hue. */
+
+/* Owner — burnt-orange (унификация с badge-role-owner). */
+.role-card[data-role="owner"]:has(input[type="radio"]:checked),
+.role-card[data-role="owner"].selected {
+  border-color: #c2410c;
+  background: #ffedd5;
+  box-shadow: 0 0 0 3px rgba(194, 65, 12, .18);
+}
+.role-card[data-role="owner"]:has(input[type="radio"]:checked) .role-card-icon,
+.role-card[data-role="owner"].selected .role-card-icon { background: #c2410c; color: #fff; }
+.role-card[data-role="owner"]:has(input[type="radio"]:checked) .role-card-label,
+.role-card[data-role="owner"].selected .role-card-label { color: #c2410c; }
+
+/* Manager — navy */
+.role-card[data-role="manager"]:has(input[type="radio"]:checked),
+.role-card[data-role="manager"].selected {
+  border-color: var(--clr-navy);
+  background: var(--clr-navy-light);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--clr-navy) 18%, transparent);
+}
+.role-card[data-role="manager"]:has(input[type="radio"]:checked) .role-card-icon,
+.role-card[data-role="manager"].selected .role-card-icon { background: var(--clr-navy); color: #fff; }
+.role-card[data-role="manager"]:has(input[type="radio"]:checked) .role-card-label,
+.role-card[data-role="manager"].selected .role-card-label { color: var(--clr-navy); }
+
+/* Technician — accent teal */
+.role-card[data-role="technician"]:has(input[type="radio"]:checked),
+.role-card[data-role="technician"].selected {
+  border-color: var(--clr-accent);
+  background: var(--clr-accent-light);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--clr-accent) 18%, transparent);
+}
+.role-card[data-role="technician"]:has(input[type="radio"]:checked) .role-card-icon,
+.role-card[data-role="technician"].selected .role-card-icon { background: var(--clr-accent); color: #fff; }
+.role-card[data-role="technician"]:has(input[type="radio"]:checked) .role-card-label,
+.role-card[data-role="technician"].selected .role-card-label { color: var(--clr-accent); }
+
+/* Employee — rose (matches badge-role-employee и chip-employee). */
+.role-card[data-role="employee"]:has(input[type="radio"]:checked),
+.role-card[data-role="employee"].selected {
+  border-color: #be185d;
+  background: #fce7f3;
+  box-shadow: 0 0 0 3px rgba(190, 24, 93, .18);
+}
+.role-card[data-role="employee"]:has(input[type="radio"]:checked) .role-card-icon,
+.role-card[data-role="employee"].selected .role-card-icon { background: #be185d; color: #fff; }
+.role-card[data-role="employee"]:has(input[type="radio"]:checked) .role-card-label,
+.role-card[data-role="employee"].selected .role-card-label { color: #be185d; }
+
+/* ── Contact card — horizontal role-card variant used in the
+   change-password / step-up flow. Icon-tile on the left, label +
+   masked contact stacked on the right, both centered vertically.
+   Email wears the brand-teal accent (matches the primary CTA),
+   phone the ink-navy accent (matches the secondary brand color). */
+.role-card.contact-card {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+}
+.role-card.contact-card .contact-card-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.role-card.contact-card .role-card-desc    { font-size: var(--text-xs); }
+/* Hide the native radio — clickable card IS the control. */
+.role-card.contact-card .sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* Контакт-карточки (email/phone) — единый нейтральный «navy» вариант для
+   обоих типов: они равнозначны как методы верификации, а разные цвета
+   на email/phone создавали ложную иерархию (email выглядел «главным»).
+   Любые выборки контактов должны идти в .role-grid с grid-template-
+   columns:1fr 1fr — это гарантирует одинаковую ширину карточек. */
+.role-card[data-contact]:hover {
+  border-color: var(--clr-navy);
+  background: var(--clr-navy-light);
+}
+.role-card[data-contact]:hover .role-card-icon {
+  background: var(--clr-navy-light);
+  color: var(--clr-navy);
+}
+.role-card[data-contact]:has(input[type="radio"]:checked),
+.role-card[data-contact].selected {
+  border-color: var(--clr-navy);
+  background: var(--clr-navy-light);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--clr-navy) 18%, transparent);
+}
+.role-card[data-contact]:has(input[type="radio"]:checked) .role-card-icon,
+.role-card[data-contact].selected .role-card-icon { background: var(--clr-navy); color: #fff; }
+.role-card[data-contact]:has(input[type="radio"]:checked) .role-card-label,
+.role-card[data-contact].selected .role-card-label { color: var(--clr-navy); }
+
+/* Single-contact line — компактный двухстрочный блок для случая
+   «у юзера ровно 1 верифицированный контакт». Сверху — тип контакта
+   мелким caption-ом, снизу — маска значения нормальным шрифтом. Никаких
+   карточек, рамок, hover'ов — это не интерактивный выбор, а просто
+   подсказка «куда уйдёт код». */
+.single-contact-line {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.4rem 0;
+}
+.single-contact-line__type {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--clr-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.single-contact-line__value {
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--clr-text-primary);
+}
+
+/* Single-contact mode: когда у юзера только 1 верифицированный контакт,
+   мы НЕ хотим показывать «выбор из одного», но и не должны падать на
+   plain-text строку — выглядит хуже карточки. JS-классы:
+     .contact-picker         — общий контейнер
+     .contact-picker--single — выставляется когда показывается одна карточка
+   Карточка центрируется и фиксированной ширины, чтобы не растягивалась
+   на всю ширину модалки. */
+.contact-picker--single {
+  display: flex !important;
+  justify-content: center;
+}
+.contact-picker--single .role-card.contact-card {
+  width: min(20rem, 100%);
+  /* Single-card mode — не интерактивен (выбора нет, контакт фиксирован).
+     Подсветим как уже выбранный, чтобы не казалось «надо нажать». */
+  cursor: default;
+  border-color: var(--clr-navy);
+  background: var(--clr-navy-light);
+}
+.contact-picker--single .role-card.contact-card .role-card-icon {
+  background: var(--clr-navy);
+  color: #fff;
+}
+.contact-picker--single .role-card.contact-card .role-card-label {
+  color: var(--clr-navy);
+}
+
+/* Customer (occupation) — accent teal */
+.role-card[data-occupation="customer"]:has(input[type="radio"]:checked),
+.role-card[data-occupation="customer"].selected {
+  border-color: var(--clr-accent);
+  background: var(--clr-accent-light);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--clr-accent) 18%, transparent);
+}
+.role-card[data-occupation="customer"]:has(input[type="radio"]:checked) .role-card-icon,
+.role-card[data-occupation="customer"].selected .role-card-icon { background: var(--clr-accent); color: #fff; }
+.role-card[data-occupation="customer"]:has(input[type="radio"]:checked) .role-card-label,
+.role-card[data-occupation="customer"].selected .role-card-label { color: var(--clr-accent); }
+
+/* Occupation — customer (teal accent, already default) + contractor (navy). */
+.role-card[data-occupation="contractor"]:has(input[type="radio"]:checked),
+.role-card[data-occupation="contractor"].selected {
+  border-color: var(--clr-navy);
+  background: var(--clr-navy-light);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--clr-navy) 18%, transparent);
+}
+.role-card[data-occupation="contractor"]:has(input[type="radio"]:checked) .role-card-icon,
+.role-card[data-occupation="contractor"].selected .role-card-icon { background: var(--clr-navy); color: #fff; }
+.role-card[data-occupation="contractor"]:has(input[type="radio"]:checked) .role-card-label,
+.role-card[data-occupation="contractor"].selected .role-card-label { color: var(--clr-navy); }
+
+/* ── 21. PIN input ────────────────────────────────────────────── */
+.pin-row  { display: flex; gap: var(--space-2); justify-content: center; }
+.pin-input {
+  width: 3rem; height: 3.5rem;
+  text-align: center;
+  font-size: var(--text-xl); font-weight: 700;
+  border: 2px solid var(--clr-border);
+  border-radius: var(--radius-md);
+  background: var(--clr-surface);
+  color: var(--clr-text-primary);
+  outline: none;
+  transition: border-color var(--trans-fast), box-shadow var(--trans-fast);
+  caret-color: var(--clr-accent);
+}
+.pin-input:focus {
+  border-color: var(--clr-accent);
+  box-shadow: 0 0 0 3px rgb(15 207 152 / 0.12);
+}
+.pin-input.filled { border-color: var(--clr-accent); background: var(--clr-accent-light); }
+.pin-input.error {
+  border-color: var(--clr-error);
+  background: var(--clr-error-light);
+  box-shadow: 0 0 0 3px rgb(220 38 38 / 0.10);
+}
+/* type="password" рисует мелкие точки даже при крупном font-size в большинстве
+   шрифтов. Увеличиваем размер и тяжесть символа специально для скрытых
+   PIN-полей — теперь точка видна так же явно, как сама цифра. */
+.pin-input[type="password"] {
+  font-size: 2rem;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+/* ── Floating corner lang switcher для auth-страниц ───────────
+   Login/register больше не имеют header'а с lang-switcher'ом — он
+   плавает в правом верхнем углу, точно как у PIN-lock overlay'я.
+   Используется на body.auth-page--hero. */
+.auth-corner-lang {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 100;
+}
+.auth-corner-lang .lang-switcher {
+  background: rgb(255 255 255 / 0.85);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  padding: 4px;
+  /* border-radius намеренно НЕ переопределяем — оставляем дефолтный
+     радиус .lang-switcher (var(--radius-full)) → овальная капсула,
+     совпадает с лангсвитчером в PIN-lock overlay. */
+  box-shadow: 0 4px 12px -2px rgb(0 0 0 / 0.12);
+}
+
+/* ── Segmented tabs ───────────────────────────────────────────
+   Двухсегментный переключатель режима. Используется в шаге 1
+   change-password (знаю пароль / забыли пароль) и аналогичных
+   местах. По дизайну — слитный pill с двумя кнопками; активный
+   сегмент отделяется фоном и тенью, чтобы сразу читалось «вы
+   выбрали эту опцию». */
+.seg-tabs {
+  display: inline-flex;
+  width: 100%;
+  background: var(--clr-bg-subtle, #f3f4f6);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-md);
+  padding: 3px;
+  gap: 3px;
+}
+.seg-tab {
+  flex: 1;
+  padding: 0.55rem 0.9rem;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--clr-text-secondary);
+  background: transparent;
+  border: 0;
+  border-radius: calc(var(--radius-md) - 3px);
+  cursor: pointer;
+  transition: background var(--trans-fast), color var(--trans-fast), box-shadow var(--trans-fast);
+}
+.seg-tab:hover { color: var(--clr-text-primary); }
+.seg-tab.active {
+  background: var(--clr-surface);
+  color: var(--clr-text-primary);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.06), 0 0 0 1px var(--clr-border);
+}
+
+/* ── 21.1 PIN-lock overlay (dashboard.html) ───────────────────── */
+.pin-lock-card {
+  width: min(28rem, 92vw);
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-xl);
+  padding: 2rem 2rem 1.5rem;
+  box-shadow: 0 20px 60px -20px rgb(0 0 0 / 0.18);
+  text-align: center;
+}
+.pin-lock-icon {
+  width: 4rem; height: 4rem;
+  margin: 0 auto 1rem;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: var(--clr-accent-light);
+  color: var(--clr-accent);
+  font-size: 2rem;
+}
+.pin-lock-title {
+  font-size: var(--text-xl);
+  font-weight: 600;
+  color: var(--clr-text-primary);
+  margin: 0 0 0.5rem;
+}
+.pin-lock-subtitle {
+  font-size: var(--text-sm);
+  color: var(--clr-text-secondary);
+  margin: 0 0 1.5rem;
+  line-height: 1.45;
+}
+.pin-lock-code { margin-bottom: 1rem; }
+#pin-lock-error { margin-bottom: 1rem; }
+.pin-lock-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.5rem;
+}
+.pin-lock-lang {
+  position: fixed;
+  top: 1.5rem;
+  right: 1.5rem;
+  z-index: 100001;
+}
+/* PIN-lock overlay: убираем обводку у лангсвитчера — внутри
+   overlay'я border выглядит лишним (он уже на blur фоне).
+   Дефолтный radius-full сохраняется → овал. */
+.pin-lock-lang.lang-switcher,
+.pin-lock-lang .lang-switcher {
+  border: 0;
+  background: rgb(255 255 255 / 0.6);
+}
+
+/* ── 22. Code input (6-digit verification) ────────────────────── */
+.code-row   { display: flex; gap: var(--space-2); justify-content: center; }
+.code-input {
+  width: 2.75rem; height: 3.25rem;
+  text-align: center;
+  font-size: var(--text-lg); font-weight: 600;
+  border: 2px solid var(--clr-border);
+  border-radius: var(--radius-md);
+  background: var(--clr-surface);
+  color: var(--clr-text-primary);
+  outline: none;
+  transition: border-color var(--trans-fast), box-shadow var(--trans-fast);
+}
+.code-input:focus {
+  border-color: var(--clr-accent);
+  box-shadow: 0 0 0 3px rgb(15 207 152 / 0.12);
+}
+.code-input.error {
+  border-color: var(--clr-error);
+  background: var(--clr-error-light);
+  box-shadow: 0 0 0 3px rgb(220 38 38 / 0.10);
+}
+

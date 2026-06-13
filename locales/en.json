@@ -231,7 +231,8 @@
       "invalid_date": "Invalid date",
       "duplicate_serial": "Equipment with this serial number already exists in the organization",
       "not_found": "Equipment not found",
-      "delete_denied": "Only the employee who added the equipment or the owner can delete it"
+      "delete_denied": "Only the employee who added the equipment or the owner can delete it",
+      "in_use": "Cannot delete equipment that has requests attached"
     },
     "requests": {
       "invalid_priority": "Select a priority",
@@ -246,6 +247,7 @@
       "invalid_action": "Invalid action",
       "bad_transition": "Action not available for the current status",
       "not_executor": "Only a member of the executor organization can take the request",
+      "cannot_take_own": "You cannot take your own request",
       "not_assignee": "Only the assigned executor can perform this action",
       "resolution_required": "Describe the work done",
       "not_author": "This action is available to the request author or the owner",
@@ -291,7 +293,8 @@
       "pin_locked": "Too many wrong attempts, try later",
       "pin_locked_with_timer": "Too many wrong attempts. Try again in {{time}}",
       "pin_not_set": "PIN code is not set",
-      "contact_not_registered": "This email or phone is not registered"
+      "contact_not_registered": "This email or phone is not registered",
+      "cannot_revoke_current_session": "The current session cannot be revoked — use sign out instead"
     },
     "validation": {
       "missing_fields": "Please fill in all required fields",
@@ -315,7 +318,8 @@
       "pin_invalid_format": "PIN must be 6 digits",
       "pin_mismatch": "PIN codes do not match",
       "current_pin_required": "Enter current PIN code",
-      "register_mode_conflict": "Provide either a new organisation name or an existing organisation ID"
+      "register_mode_conflict": "Provide either a new organisation name or an existing organisation ID",
+      "message_too_long": "Text is too long"
     },
     "verification": {
       "code_not_found": "Code not found or expired",
@@ -355,14 +359,26 @@
       "status_unchanged": "Status unchanged",
       "user_suspended": "User is suspended",
       "owner_cannot_leave": "An owner cannot leave their own organisation",
-      "not_approved_member": "Only an active member can leave"
+      "not_approved_member": "Only an active member can leave",
+      "cannot_cancel_approved": "Active membership cannot be cancelled — leave the organisation instead",
+      "not_invited": "There is no invitation from the organisation",
+      "not_pending": "The application is not pending"
+    },
+    "members": {
+      "cannot_remove_self": "You cannot remove yourself",
+      "cannot_remove_owner": "The organisation owner cannot be removed",
+      "not_found": "Member not found"
+    },
+    "schema": {
+      "invite_meta_missing": "Invitations are temporarily unavailable — a server update is required"
     },
     "permissions": {
       "owner_only": "Owner only",
       "org_access_denied": "Access to organisation denied",
       "org_manage_denied": "Insufficient permissions to manage",
       "member_management_only": "Available only for member management",
-      "cannot_modify_owner": "Cannot modify the owner"
+      "cannot_modify_owner": "Cannot modify the owner",
+      "not_org_member": "This action is available to organisation members only"
     },
     "invite": {
       "invalid_or_expired": "Invitation is invalid or expired",
@@ -721,6 +737,7 @@
     "start_date": "Start date",
     "edit_notice": "Changes require the partner's approval. The previous version will move to the «Completed contracts» block.",
     "sla_out_of_range": "SLA values must be between 1 and 720 hours.",
+    "sla_required": "Fill in all four SLA values",
     "view_no_text": "No contract text was provided."
   },
   "owner": {
@@ -826,7 +843,7 @@
     "type_contract_desc": "Handled by a contractor",
     "contract_label": "Contract",
     "no_contracts": "No active contracts — only an internal request is available.",
-    "equipment_label": "Equipment",
+    "equipment_label": "Faulty equipment",
     "equipment_hint": "Pick the equipment item the request is about.",
     "equipment_select_ph": "— select equipment —",
     "equipment_none": "— none —",
@@ -847,10 +864,23 @@
     },
     "internal_tag": "Internal",
     "unassigned": "Unassigned",
+    "sum_parties": "Parties",
+    "sum_equipment": "Equipment",
+    "sum_author": "Author",
+    "sum_executor": "Assignee",
+    "sum_due": "Due date",
+    "sum_rating": "Rating",
     "side_customer": "Customer",
     "side_contractor": "Contractor",
     "event_created": "Request created",
     "event_status": "Status: {{status}}",
+    "events": {
+      "assigned": "Taken into work",
+      "in_progress": "Work started",
+      "done": "Work completed",
+      "closed": "Request closed",
+      "cancelled": "Request cancelled"
+    },
     "act_take": "Take",
     "act_start": "Start",
     "act_finish": "Finish",

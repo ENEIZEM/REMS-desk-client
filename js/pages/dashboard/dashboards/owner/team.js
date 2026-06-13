@@ -227,7 +227,7 @@ function colleagueRowHTML(m, selfId) {
   // Удалить можно: не себя, не другого owner'а.
   const canRemove = !isSelf && !isOwner;
   return `
-    <div class="team-colleague-row">
+    <div class="team-colleague-row${isOwner ? ' team-colleague-row--owner' : ' team-colleague-row--employee'}">
       <div class="avatar avatar-md">${avatarTile}</div>
       <div class="team-colleague-text">
         <div class="team-colleague-name">${escapeHTML(m.full_name)}</div>

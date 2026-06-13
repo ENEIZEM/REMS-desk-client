@@ -1,0 +1,268 @@
+/* ── 5. Buttons ───────────────────────────────────────────────── */
+/* ──────────────────────────────────────────────────────────────────
+   Button hover system — driven by CSS custom properties so every
+   variant declares its own 8-value matrix (bg / color / border / icon
+   × normal+hover) and the .btn base owns the actual properties and
+   transitions. Adding a new variant = setting 8 vars; no new selectors,
+   no new transition declarations.
+
+   Why text & icon get SEPARATE colours: filled buttons read better when
+   the icon stays slightly off-white while the label is pure white
+   (the icon's heavier glyph weight balances the label visually). Light
+   buttons get the inverse — the label shifts darker, the icon picks up
+   the accent to signal interactivity independently. The two channels
+   transition in parallel but to different targets.
+
+   Hover direction (the user-facing contract):
+     • Light buttons   → background goes DARKER
+     • Dark/filled     → background goes LIGHTER (or shifts to the
+                         token-defined "_hover" shade)
+   Both branches use --trans-normal (200ms) so the change reads as
+   intentional, not a flicker. */
+.btn {
+  /* 8-prop matrix — every variant overrides as needed. */
+  --btn-bg:           transparent;
+  --btn-color:        var(--clr-text-primary);
+  --btn-border:       transparent;
+  --btn-icon:         currentColor;
+  --btn-bg-hover:     var(--btn-bg);
+  --btn-color-hover:  var(--btn-color);
+  --btn-border-hover: var(--btn-border);
+  --btn-icon-hover:   var(--btn-icon);
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 0.5625rem var(--space-4);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  line-height: 1.25;
+  border: 1px solid var(--btn-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  background: var(--btn-bg);
+  color: var(--btn-color);
+  /* Background, label, border, icon and shadow all glide together; the
+     icon's colour rule lives on .btn > i below (it can't be set by
+     transitioning `color` because we use a SEPARATE icon token). */
+  transition:
+    background-color var(--trans-normal),
+    color            var(--trans-normal),
+    border-color     var(--trans-normal),
+    box-shadow       var(--trans-normal),
+    opacity          var(--trans-normal);
+  user-select: none;
+  white-space: nowrap;
+  text-decoration: none;
+}
+/* Icon channel — independent colour + its own transition so a variant
+   can shift the icon to a completely different hue than the label. */
+.btn > i { color: var(--btn-icon); transition: color var(--trans-normal); }
+.btn:hover {
+  background:   var(--btn-bg-hover);
+  color:        var(--btn-color-hover);
+  border-color: var(--btn-border-hover);
+}
+.btn:hover > i { color: var(--btn-icon-hover); }
+
+.btn:focus-visible { outline: 2px solid var(--clr-accent); outline-offset: 2px; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+
+/* "Visually disabled but still clickable" — primary CTAs in forms wear
+   this class until the form's required-fields are filled. Click is
+   intentionally allowed so the page can highlight whatever is missing
+   on the same click (see form-guard JS). */
+.btn.is-pending {
+  background:   var(--clr-bg-muted)     !important;
+  color:        var(--clr-text-muted)   !important;
+  border-color: var(--clr-border)       !important;
+  /* Иконка тоже должна стать серой — иначе у primary-кнопки в is-pending
+     остаётся белый глиф (--btn-icon:#fff) и он не виден на серой подложке. */
+  --btn-icon:       var(--clr-text-muted) !important;
+  --btn-icon-hover: var(--clr-text-muted) !important;
+  cursor: pointer;
+}
+.btn.is-pending:hover { background: var(--clr-bg-muted) !important; filter: brightness(0.97); }
+
+/* Jade-teal filled CTA — a LIGHT button (#0d9488). Hover: bg goes
+   DARKER. Label AND icon both shift in the SAME direction (white →
+   mint off-white) so they read as one cohesive content-block rather
+   than two competing animations. The icon's normal-state alpha
+   matches the label so it never "lights up" relative to the text. */
+.btn-primary {
+  --btn-bg:           var(--clr-accent);
+  --btn-color:        #fff;
+  --btn-border:       var(--clr-accent);
+  --btn-icon:         #fff;
+  --btn-bg-hover:     var(--clr-accent-hover);
+  --btn-color-hover:  #ecfdf5;            /* mint-tinted off-white */
+  --btn-border-hover: var(--clr-accent-hover);
+  --btn-icon-hover:   #ecfdf5;            /* SAME direction as label */
+}
+.btn-primary:active { filter: brightness(0.96); }
+
+/* Light, white-surface secondary. Previously the hover only nudged the
+   bg to `bg-subtle` which was nearly invisible. Now the bg snaps to
+   the jade-teal LIGHT tile (`--clr-accent-light`) — a clear colour
+   stamp the user can't miss — the label deepens to pure navy, the
+   border picks up the brand accent, and the icon flips to the brand
+   green. Three channels, three visible movements. */
+.btn-secondary {
+  --btn-bg:           var(--clr-surface);
+  --btn-color:        var(--clr-text-primary);
+  --btn-border:       var(--clr-border);
+  --btn-icon:         var(--clr-text-muted);
+  --btn-bg-hover:     var(--clr-accent-light);
+  --btn-color-hover:  var(--clr-navy);
+  --btn-border-hover: var(--clr-accent);
+  --btn-icon-hover:   var(--clr-accent);
+}
+
+/* Button styled as an inline text link — used for "Resend code", the
+   modal alt-action ("Открепить", "Вернуться к смене"), and any other
+   secondary affordance that should sit inside a sentence. */
+.link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 600;
+  color: var(--clr-accent);
+  cursor: pointer;
+  text-decoration: none;
+  transition: color var(--trans-fast);
+}
+.link-btn:hover    { text-decoration: underline; }
+.link-btn:disabled { color: var(--clr-text-muted); cursor: not-allowed; text-decoration: none; }
+
+/* Light, transparent variant. On hover the bg materialises as the
+   brand jade-teal LIGHT tile (same shade as .btn-secondary's hover),
+   the label goes from muted-secondary all the way to accent (brand
+   green) — a much bigger jump than the old `text-primary` shift — and
+   the icon shifts to navy. Label & icon take DIFFERENT brand colours
+   so the two channels are independently legible. */
+.btn-ghost {
+  --btn-bg:           transparent;
+  --btn-color:        var(--clr-text-secondary);
+  --btn-border:       transparent;
+  --btn-icon:         var(--clr-text-muted);
+  --btn-bg-hover:     var(--clr-accent-light);
+  --btn-color-hover:  var(--clr-accent);
+  --btn-border-hover: transparent;
+  --btn-icon-hover:   var(--clr-navy);
+}
+
+/* DARK red filled button (rosy `#d35d6e`). Hover: bg goes LIGHTER.
+   Label and icon both fade together to a softer pink-tinted white. */
+.btn-danger {
+  --btn-bg:           var(--clr-error);
+  --btn-color:        #fff;
+  --btn-border:       var(--clr-error);
+  --btn-icon:         #fff;
+  --btn-bg-hover:     #e08896;
+  --btn-color-hover:  #fff5f5;
+  --btn-border-hover: #e08896;
+  --btn-icon-hover:   #fff5f5;
+}
+
+/* DARK ink-navy filled CTA. Hover: bg goes LIGHTER (navy-hover token
+   now resolves to the lighter #3d5273). Label and icon shift to the
+   SAME slate-tinted off-white so they read together as one block. */
+.btn-navy {
+  --btn-bg:           var(--clr-navy);
+  --btn-color:        #fff;
+  --btn-border:       var(--clr-navy);
+  --btn-icon:         #fff;
+  --btn-bg-hover:     var(--clr-navy-hover);
+  --btn-color-hover:  #e2e8f0;
+  --btn-border-hover: var(--clr-navy-hover);
+  --btn-icon-hover:   #e2e8f0;
+}
+
+.btn-sm  { padding: 0.375rem 0.75rem; font-size: var(--text-xs); border-radius: var(--radius-sm); }
+.btn-lg  { padding: 0.75rem var(--space-6); font-size: var(--text-base); }
+.btn-xl  { padding: 0.875rem var(--space-8); font-size: var(--text-base); font-weight: 600; }
+.btn-icon { padding: 0.5rem; border-radius: var(--radius-md); }
+
+/* ── Loaders ──────────────────────────────────────────────────────
+   • .spinner — standalone two-tone ring (teal + navy) for in-page
+     loading states (sessions, lists, etc.). Sized via font-size on
+     the parent or via inline --spinner-size if needed.
+   • .btn-loading — the form-button busy state. White ring on filled
+     buttons, accent ring on ghost/secondary.
+   Both share the same `spin` keyframe. */
+
+.spinner {
+  display: inline-block;
+  width:  var(--spinner-size, 1.5rem);
+  height: var(--spinner-size, 1.5rem);
+  border-radius: 50%;
+  /* Two arcs of the ring — teal sweeping 270°, navy filling the rest
+     — give the rotation a recognisable "REMS" pair-tone signature. */
+  background: conic-gradient(
+    from 0deg,
+    var(--clr-accent) 0deg,
+    var(--clr-accent) 270deg,
+    var(--clr-navy)   270deg,
+    var(--clr-navy)   360deg
+  );
+  /* Punch a transparent hole in the middle to form a ring. */
+  -webkit-mask:
+    radial-gradient(circle, transparent calc(50% - 3px), #000 calc(50% - 2px));
+          mask:
+    radial-gradient(circle, transparent calc(50% - 3px), #000 calc(50% - 2px));
+  animation: spin 0.9s linear infinite;
+}
+.spinner-lg { --spinner-size: 2rem; }
+.spinner-sm { --spinner-size: 1rem; }
+
+/* ── Loader overlay (lib/lazy-loader.js) ───────────────────────────
+   Renders a centered .spinner on top of its container with a slight
+   translucent backdrop so the underlying content reads as "loading"
+   without being torn out of the DOM. The fixed variant pins the
+   overlay to the viewport for full-page loads. */
+.loader-overlay {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  /* Light-tinted veil over the host container. Avoid backdrop-filter:
+     some Chromium builds stall the renderer when it's combined with
+     animations on a parent with frequent reflows. */
+  background: color-mix(in srgb, var(--clr-bg) 78%, transparent);
+  z-index: 20;
+  animation: loader-overlay-in 180ms ease-out;
+}
+.loader-overlay--fixed { position: fixed; }
+.loader-overlay--fade  { animation: loader-overlay-out 180ms ease-out forwards; }
+@keyframes loader-overlay-in  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes loader-overlay-out { to   { opacity: 0; } }
+
+.btn-loading { position: relative; color: transparent !important; pointer-events: none; }
+.btn-loading::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 1em;
+  height: 1em;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, #fff 0deg, #fff 270deg, transparent 270deg, transparent 360deg);
+  -webkit-mask: radial-gradient(circle, transparent calc(50% - 3px), #000 calc(50% - 2px));
+          mask: radial-gradient(circle, transparent calc(50% - 3px), #000 calc(50% - 2px));
+  animation: spin 0.7s linear infinite;
+}
+.btn-secondary.btn-loading::after,
+.btn-ghost.btn-loading::after {
+  background: conic-gradient(
+    from 0deg,
+    var(--clr-accent) 0deg,
+    var(--clr-accent) 270deg,
+    var(--clr-navy)   270deg,
+    var(--clr-navy)   360deg
+  );
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+

@@ -92,7 +92,11 @@ export function createCodeInput(opts) {
   }
   function startResendTimer(seconds = 60) {
     if (timerId) clearInterval(timerId);
-    let left = Math.max(1, Math.ceil(seconds));
+    // 0 — валидное значение: кулдаун уже прошёл (backend реюзнул живой
+    // код), кнопку resend показываем сразу, без минутной паузы.
+    const left0 = Math.ceil(Number(seconds));
+    if (!Number.isFinite(left0) || left0 <= 0) { stopResendTimer(); return; }
+    let left = left0;
     waitEl?.classList.remove('hidden');
     if (btnEl)     btnEl.style.display = 'none';
     if (counterEl) counterEl.textContent = left;

@@ -1,0 +1,301 @@
+/* ── 17. Notifications ──────────────────────────────────────────
+   Each item is a flex row with three slots: icon-tile · content ·
+   actions. The container hover lifts the bg slightly; the tone class
+   on the row (.notif-tone-*) drives the icon tile's colour (NOT the
+   row background) so the colour reads as a type signal independent
+   of read/unread state. Unread rows get an extra teal-tinted bg + a
+   dot in the action slot.
+   The action button is hidden by default and revealed on row hover
+   so the row stays visually clean when the cursor is elsewhere. */
+.notification-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  /* Padding = body padding / 2 → hover-bg карточки не доходит до
+     border-блока (одинаковый zазор слева/справа). Соответствует
+     паттерну members-row / team-colleague-row. */
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  transition: background var(--trans-fast);
+  cursor: pointer;
+  position: relative;
+}
+.notification-item:hover  { background: var(--clr-bg-subtle); }
+.notification-item.unread { background: var(--clr-accent-light); }
+.notification-item.unread:hover { background: #d1faf0; }
+
+.notification-icon {
+  width: 2.25rem; height: 2.25rem; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.05rem; flex-shrink: 0;
+  /* Defaults — overridden by .notif-tone-* below. */
+  background: var(--clr-bg-muted);
+  color: var(--clr-text-secondary);
+}
+.notification-content { flex: 1; min-width: 0; }
+.notification-title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--clr-text-primary);
+  line-height: 1.35;
+}
+/* Body line — distinct from the title visually (smaller, muted).
+   Only rendered when the body string isn't a duplicate of the title. */
+.notification-body {
+  font-size: var(--text-xs);
+  color: var(--clr-text-secondary);
+  line-height: 1.5;
+  margin-top: var(--space-1);
+  /* Truncate long user-agents / inviter chains to two lines so the
+     list cards stay roughly the same height. Клик по уведомлению
+     убирает clamp (см. .notification-item.is-expanded). */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  word-break: break-word;
+  transition: -webkit-line-clamp .15s linear;
+}
+/* Expand-state — после клика по карточке убираем line-clamp, и
+   полный текст становится виден. Высота карточки увеличивается
+   плавно благодаря native transition контейнера .notification-item. */
+/* Наведение раскрывает полный текст уведомления (без клика). Клик теперь
+   сразу переходит на связанную вкладку, поэтому раскрытие переехало на
+   :hover. .is-expanded сохранён для обратной совместимости. */
+.notification-item:hover .notification-body,
+.notification-item.is-expanded .notification-body {
+  -webkit-line-clamp: unset;
+  display: block;
+  overflow: visible;
+}
+.notification-time { font-size: var(--text-xs); color: var(--clr-text-muted); margin-top: var(--space-1); }
+/* Back-compat: older renderers still emit .notification-text — keep
+   the same look as the new title so nothing renders raw. */
+.notification-text { font-size: var(--text-sm); line-height: 1.4; }
+
+/* Right-edge actions cluster: hover-revealed action button + the
+   unread dot (only present on unread rows). Both share the same slot
+   so the row width doesn't jump on state change. */
+.notification-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  margin-top: .15rem;
+}
+.notif-action {
+  /* Round icon-only button. Surface tile that pops on row-hover. */
+  width: 1.85rem; height: 1.85rem;
+  border-radius: 50%;
+  border: 1px solid var(--clr-border);
+  background: var(--clr-surface);
+  color: var(--clr-text-secondary);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transform: scale(0.92);
+  transition:
+    opacity         var(--trans-normal),
+    transform       var(--trans-normal),
+    background      var(--trans-normal),
+    color           var(--trans-normal),
+    border-color    var(--trans-normal);
+}
+.notif-action i { font-size: .95rem; transition: color var(--trans-normal); }
+.notification-item:hover .notif-action,
+.notification-item:focus-within .notif-action { opacity: 1; transform: scale(1); }
+.notif-action:hover {
+  background: var(--clr-accent);
+  border-color: var(--clr-accent);
+  color: #fff;
+}
+.notif-action:hover i { color: #fff; }
+
+.notif-unread-dot {
+  width: .55rem; height: .55rem;
+  border-radius: 50%;
+  background: var(--clr-accent);
+  flex-shrink: 0;
+}
+
+/* Bell button's unread-count badge. Compact pill — smaller than the
+   first iteration which felt heavy and pushed the digit off-centre on
+   single-digit counts. Padding is symmetrical; line-height matches the
+   font so the digit sits vertically centred. Capped at "9+" by
+   updateNotifBadge() — anything two-character takes the natural width. */
+.notif-count-badge {
+  position: absolute;
+  /* Sits LOWER and FURTHER RIGHT than before so the chip visually
+     overlaps the bell glyph (sits on the bell's mouth area). Old
+     position was outside the icon entirely — disconnected look. */
+  top:   0.1rem;
+  right: -0.15rem;
+  min-width: 0.95rem;
+  height: 0.95rem;
+  padding: 0 0.22rem;
+  background: var(--clr-error);
+  color: #fff;
+  font-size: 0.58rem;
+  font-weight: 700;
+  line-height: 0.95rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  pointer-events: none;
+  letter-spacing: 0;
+  box-sizing: border-box;
+}
+
+/* ── Per-type tone variants ───────────────────────────────────────
+   Drive ONLY the icon tile colour — the rest of the row stays neutral
+   so the eye gets a single coloured marker per type, not a striped
+   wall of colour. Each tone owns a bg-light + a fg pair. */
+.notification-item.notif-tone-green  .notification-icon { background: #dcfce7; color: #15803d; }
+.notification-item.notif-tone-blue   .notification-icon { background: #dbeafe; color: #1d4ed8; }
+.notification-item.notif-tone-amber  .notification-icon { background: #fef3c7; color: #b45309; }
+.notification-item.notif-tone-red    .notification-icon { background: #fee2e2; color: #b91c1c; }
+.notification-item.notif-tone-slate  .notification-icon { background: #f1f5f9; color: #475569; }
+
+/* ── Notification corner-toasts ──────────────────────────────────
+   Stacked column in the bottom-right corner. Independent of the
+   regular .toast container so:
+     · they coexist (an error toast doesn't displace a notif card)
+     · they can have a distinct lifecycle (longer-lived, hover-pause)
+     · the visual treatment is richer (icon tile + title + body + 2
+       action buttons), more like an in-list card than an info pill. */
+#notify-toast-container {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: .65rem;
+  pointer-events: none;            /* children re-enable */
+  max-width: 22rem;
+}
+.notify-toast {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;       /* one or two ROWS (top: icon+body+actions; bottom: decide-buttons in owner mode) */
+  gap: .65rem;
+  padding: .85rem .9rem;
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 18px 38px rgba(15, 23, 42, 0.18), 0 2px 6px rgba(15, 23, 42, 0.06);
+  animation: notify-toast-in 220ms ease-out both;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;   /* указатель — toast кликабелен (expand) */
+  transition: max-height .2s ease;
+}
+/* При наведении (и в legacy is-expanded) разрешаем тосту вырасти и
+   убираем clipping, чтобы полный текст был виден без клика. */
+.notify-toast:hover,
+.notify-toast.is-expanded {
+  overflow: visible;
+}
+/* Top row inside a toast: icon-tile · body · (inline actions in navigate mode).
+   In owner_decide mode the actions move to their own row below, freeing
+   horizontal space so the title + name fit comfortably. */
+.notify-toast-row {
+  display: flex;
+  gap: .75rem;
+  align-items: flex-start;
+}
+.notify-toast.notify-toast-leaving { animation: notify-toast-out 240ms ease-in both; }
+
+@keyframes notify-toast-in {
+  from { opacity: 0; transform: translateX(.75rem); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes notify-toast-out {
+  to   { opacity: 0; transform: translateX(.75rem); }
+}
+
+.notify-toast-icon {
+  width: 2.25rem; height: 2.25rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.05rem;
+  background: var(--clr-bg-muted);
+  color: var(--clr-text-secondary);
+}
+.notify-toast-body { flex: 1; min-width: 0; cursor: pointer; }
+.notify-toast-title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--clr-text-primary);
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  word-break: break-word;
+}
+.notify-toast:hover .notify-toast-title,
+.notify-toast.is-expanded .notify-toast-title {
+  -webkit-line-clamp: unset;
+  display: block;
+  overflow: visible;
+}
+.notify-toast-text {
+  font-size: var(--text-xs);
+  color: var(--clr-text-secondary);
+  line-height: 1.5;
+  margin-top: .15rem;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  word-break: break-word;
+}
+/* Раскрытый toast — клик по body убирает clamp; плашка растёт по
+   высоте чтобы вместить весь текст. */
+.notify-toast:hover .notify-toast-text,
+.notify-toast.is-expanded .notify-toast-text {
+  -webkit-line-clamp: unset;
+  display: block;
+  overflow: visible;
+}
+.notify-toast-actions { display: flex; gap: .35rem; flex-shrink: 0; }
+.notify-toast-btn {
+  width: 1.75rem; height: 1.75rem;
+  border-radius: 50%;
+  border: 1px solid var(--clr-border);
+  background: var(--clr-surface);
+  color: var(--clr-text-secondary);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: background var(--trans-normal), color var(--trans-normal), border-color var(--trans-normal);
+}
+.notify-toast-btn i { font-size: .85rem; transition: color var(--trans-normal); }
+.notify-toast-btn:hover {
+  background: var(--clr-accent);
+  border-color: var(--clr-accent);
+  color: #fff;
+}
+.notify-toast-btn:hover i { color: #fff; }
+
+/* owner_decide layout — two TEXT buttons stretched across the bottom
+   row. Equal widths so neither action dominates visually; the user
+   makes a deliberate choice between two equivalent paths. */
+.notify-toast-decide {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .5rem;
+  padding-top: .15rem;
+}
+.notify-toast-decide .btn { width: 100%; justify-content: center; }
+
+/* Per-tone left accent on the icon tile — matches the list cards. */
+.notify-toast.notif-tone-green  .notify-toast-icon { background: #dcfce7; color: #15803d; }
+.notify-toast.notif-tone-blue   .notify-toast-icon { background: #dbeafe; color: #1d4ed8; }
+.notify-toast.notif-tone-amber  .notify-toast-icon { background: #fef3c7; color: #b45309; }
+.notify-toast.notif-tone-red    .notify-toast-icon { background: #fee2e2; color: #b91c1c; }
+.notify-toast.notif-tone-slate  .notify-toast-icon { background: #f1f5f9; color: #475569; }
+

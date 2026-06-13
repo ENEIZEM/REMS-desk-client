@@ -1,0 +1,40 @@
+/* ── 23. Toast ────────────────────────────────────────────────── */
+#toast-container {
+  position: fixed;
+  bottom: var(--space-6);
+  right: var(--space-6);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  pointer-events: none;
+}
+.toast {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--clr-text-primary);
+  color: #fff;
+  border-radius: var(--radius-lg);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  box-shadow: var(--shadow-lg);
+  pointer-events: auto;
+  animation: toast-in 0.25s ease;
+  max-width: 380px;
+}
+.toast.success { background: var(--clr-success-hover); }
+.toast.error   { background: #991b1b; }
+.toast.warning { background: #92400e; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(1rem); } to { opacity: 1; transform: translateY(0); } }
+
+/* ── 24. Skeleton ─────────────────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(90deg, var(--clr-bg-muted) 25%, var(--clr-border) 50%, var(--clr-bg-muted) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-wave 1.4s ease infinite;
+  border-radius: var(--radius-md);
+}
+@keyframes skeleton-wave { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+

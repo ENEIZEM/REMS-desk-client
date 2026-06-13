@@ -1,0 +1,142 @@
+<!-- ══════════════════════════════════════════════════════════════
+     Change contact (email / phone) modal — 3-step wizard.
+     Step 1: confirm current contact (the frontend only has the masked
+             version, so the user must type the full one — proves they
+             know it). Skipped when LINKING a brand-new contact.
+     Step 2: enter the new contact and send a 6-digit code to it.
+     Step 3: enter the code → submit.
+     Backend (change-email / change-phone) revokes ALL sessions on success,
+     so the modal forces a logout after a successful save.
+     ══════════════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" id="change-contact-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-card-icon"><i class="ph-bold ph-envelope-simple" id="chc-icon"></i></div>
+      <div class="modal-header-text">
+        <h3 class="modal-title" id="chc-title">—</h3>
+        <p class="modal-subtitle" id="chc-subtitle" data-i18n="profile.change_contact_subtitle">Подтвердите код, чтобы сохранить новый контакт</p>
+      </div>
+      <button class="modal-close" data-close-modal="change-contact-modal"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex; flex-direction:column; gap:1rem;">
+
+        <!-- ── Step 1: confirm full current contact ───────────── -->
+        <div id="chc-step1" class="chc-step">
+          <p class="form-hint" style="margin-bottom:.75rem;" data-i18n="profile.change_contact_step1_hint">—</p>
+          <div class="form-group">
+            <label class="form-label" for="chc-current-input" data-i18n="profile.current_contact_label">Текущий контакт</label>
+            <input id="chc-current-input" type="text" class="form-input" autocomplete="off">
+            <div class="form-error" id="err-chc-current"><i class="ph ph-warning-circle"></i><span></span></div>
+          </div>
+        </div>
+
+        <!-- ── Step 2: new contact ────────────────────────────── -->
+        <div id="chc-step2" class="chc-step hidden">
+          <p class="form-hint" style="margin-bottom:.75rem;" data-i18n="profile.change_contact_step2_hint">—</p>
+          <div class="form-group">
+            <label class="form-label" for="chc-new-input" data-i18n="profile.new_contact_label">Новый контакт</label>
+            <input id="chc-new-input" type="text" class="form-input" autocomplete="off">
+            <div class="form-error" id="err-chc-new"><i class="ph ph-warning-circle"></i><span></span></div>
+          </div>
+        </div>
+
+        <!-- ── Step 3: enter the 6-digit code (mirrors register step 2) ── -->
+        <div id="chc-step3" class="chc-step hidden">
+          <p style="text-align:center; margin-bottom:1rem; font-size:var(--text-sm); color:var(--clr-text-secondary);">
+            <span data-i18n="auth.register.code_sent">Код отправлен на</span>
+            <strong id="chc-step3-target" style="color:var(--clr-text-primary);">—</strong>
+          </p>
+          <div>
+            <p class="form-label" style="justify-content:center; margin-bottom:.75rem;" data-i18n="auth.register.code_label">Код подтверждения</p>
+            <div class="code-row">
+              <input class="code-input chc-code-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
+              <input class="code-input chc-code-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
+              <input class="code-input chc-code-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
+              <input class="code-input chc-code-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
+              <input class="code-input chc-code-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
+              <input class="code-input chc-code-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
+            </div>
+            <p class="form-hint" style="text-align:center; margin-top:.5rem;" data-i18n="auth.register.code_hint">Введите 6-значный код из письма / SMS</p>
+          </div>
+          <div style="text-align:center; margin-top:1rem; font-size:var(--text-sm); color:var(--clr-text-secondary);">
+            <span id="chc-resend-wait" class="hidden">
+              <span data-i18n="auth.register.code_resend_wait">Повторно через</span>
+              <strong id="chc-resend-countdown">60</strong>с
+            </span>
+            <button type="button" id="btn-chc-resend" class="btn btn-ghost btn-sm" style="display:none;">
+              <i class="ph ph-arrow-clockwise"></i>
+              <span data-i18n="auth.register.code_resend">Отправить повторно</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="alert alert-error" id="err-chc"><i class="ph ph-warning-circle"></i><span id="err-chc-text"></span></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" id="btn-chc-next" data-i18n="common.continue">Далее</button>
+      <button class="btn btn-secondary" id="btn-chc-back" data-i18n="profile.change_contact_back" style="display:none;">Назад</button>
+      <button class="btn btn-secondary" data-close-modal="change-contact-modal" data-i18n="common.cancel">Отмена</button>
+      <!-- Alt-action: "Detach instead" — mirrors register's
+           "Уже есть учётная запись? Войти" pattern. Visible only in
+           CHANGE mode AND when the user has another verified contact
+           to fall back on (JS toggles via #chc-detach-row.style.display). -->
+      <p class="modal-alt-action danger" id="chc-detach-row">
+        <span data-i18n="profile.change_contact_detach_hint">Не хотите менять?</span>
+        <button type="button" id="btn-chc-detach" class="link-btn" data-i18n="profile.detach_contact">Открепить контакт</button>
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     Detach contact modal — simplified single-step proof:
+     type the full contact + the account password. The "can't detach the
+     last contact" guard lives on the backend.
+     ══════════════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" id="detach-contact-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-card-icon danger"><i class="ph-bold ph-trash"></i></div>
+      <div class="modal-header-text">
+        <h3 class="modal-title" id="dtc-title" data-i18n="profile.detach_contact">Открепить контакт</h3>
+        <p class="modal-subtitle" data-i18n="profile.detach_subtitle">Введите контакт и пароль для подтверждения</p>
+      </div>
+      <button class="modal-close" data-close-modal="detach-contact-modal"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex; flex-direction:column; gap:1rem;">
+        <p class="form-hint" data-i18n="profile.detach_hint">Чтобы открепить контакт, введите его полностью и подтвердите паролем от аккаунта.</p>
+
+        <div class="form-group">
+          <label class="form-label" for="dtc-contact" data-i18n="profile.current_contact_label">Текущий контакт</label>
+          <input id="dtc-contact" type="text" class="form-input" autocomplete="off">
+          <div class="form-error" id="err-dtc-contact"><i class="ph ph-warning-circle"></i><span></span></div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="dtc-password" data-i18n="profile.current_password">Текущий пароль</label>
+          <div class="input-wrap">
+            <i class="ph ph-lock-simple input-icon"></i>
+            <input id="dtc-password" type="password" class="form-input" autocomplete="current-password">
+            <button type="button" class="input-action" data-toggle-pw="dtc-password" tabindex="-1">
+              <i class="ph ph-eye"></i>
+            </button>
+          </div>
+          <div class="form-error" id="err-dtc-password"><i class="ph ph-warning-circle"></i><span></span></div>
+        </div>
+
+        <div class="alert alert-error" id="err-dtc"><i class="ph ph-warning-circle"></i><span id="err-dtc-text"></span></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="btn-dtc-submit" data-i18n="profile.detach_confirm">Открепить</button>
+      <button class="btn btn-secondary" data-close-modal="detach-contact-modal" data-i18n="common.cancel">Отмена</button>
+      <p class="modal-alt-action">
+        <span data-i18n="profile.detach_back_hint">Передумали?</span>
+        <button type="button" id="btn-dtc-back" class="link-btn" data-i18n="profile.detach_back_link">Вернуться к смене</button>
+      </p>
+    </div>
+  </div>
+</div>

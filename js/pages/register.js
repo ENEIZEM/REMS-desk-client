@@ -468,8 +468,9 @@ function hideAlert(id) {
       //   reused=false → tell the user a fresh code was sent (and clear
       //                  any stale digits in the inputs)
       const reused   = resp?.data?.reused === true;
-      const cooldown = Number(resp?.data?.cooldown) || 60;
-      codeCtl.startResendTimer(cooldown);
+      // cooldown=0 валиден (живой код реюзнут после кулдауна) — || 60 нельзя.
+      const cooldownRaw = Number(resp?.data?.cooldown);
+      codeCtl.startResendTimer(Number.isFinite(cooldownRaw) ? cooldownRaw : 60);
 
       if (reused) {
         toast(t('auth.register.code_use_existing'), 'info');
@@ -534,7 +535,7 @@ function hideAlert(id) {
   q('#btn-resend')?.addEventListener('click', async () => {
     hideAlert('err-step2');
     try {
-      const resp = await auth.sendCode(state.contact, 'register', state.organization_id);
+      const resp = await auth.sendCode(state.contact, 'register', state.organization_id, { resend: true });
       const cooldown = Number(resp?.data?.cooldown) || 60;
       codeCtl.startResendTimer(cooldown);
       // If backend reused the existing code (shouldn't normally happen on

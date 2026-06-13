@@ -1,0 +1,146 @@
+<!-- ═══ Equipment: add / edit (2 steps) ═══════════════════════════ -->
+<div class="modal-backdrop" id="equipment-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-card-icon teal"><i class="ph-bold ph-desktop-tower"></i></div>
+      <div class="modal-header-text">
+        <h3 class="modal-title" id="eq-modal-title" data-i18n="equipment.add_title">Добавить технику</h3>
+        <p class="modal-subtitle"><span data-i18n="contracts.step">Шаг</span> <span id="eq-step-cur">1</span> <span data-i18n="contracts.of">из</span> 3</p>
+      </div>
+      <button class="modal-close" data-close-modal="equipment-modal"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="steps-track ct-steps-modal" id="eq-stepper">
+      <div class="step-item">
+        <div class="step-circle active" data-step="1">1</div>
+        <div class="step-line" data-line="1"></div>
+      </div>
+      <div class="step-item">
+        <div class="step-circle" data-step="2">2</div>
+        <div class="step-line" data-line="2"></div>
+      </div>
+      <div class="step-item" style="flex:0;">
+        <div class="step-circle" data-step="3">3</div>
+      </div>
+    </div>
+    <div class="modal-body">
+      <!-- ── Шаг 1: категория, фото, бренд*, модель* ───────────────── -->
+      <div id="eq-step-1" class="ct-step">
+        <div class="form-group">
+          <label class="form-label" for="eq-category"><span data-i18n="equipment.category_label">Категория</span> <span class="req">*</span></label>
+          <div class="eq-category-wrap">
+            <i id="eq-category-icon" class="ph-duotone ph-dots-three-outline"></i>
+            <select id="eq-category" class="form-input"></select>
+          </div>
+          <p class="form-helper eq-category-desc" id="eq-category-desc"></p>
+        </div>
+        <div class="form-group">
+          <label class="form-label" data-i18n="equipment.photo_label">Фото</label>
+          <div class="equipment-photo-tile" id="eq-photo-tile" tabindex="0" role="button">
+            <div class="equipment-photo-empty" id="eq-photo-empty">
+              <i class="ph-duotone ph-image"></i>
+              <span data-i18n="equipment.photo_pick">Загрузить фото</span>
+            </div>
+            <div class="equipment-photo-filled hidden" id="eq-photo-filled">
+              <img id="eq-photo-img" src="" alt="">
+              <button type="button" id="eq-photo-clear" class="btn-icon" data-i18n-title="common.delete" title="Удалить" aria-label="remove"><i class="ph ph-x"></i></button>
+            </div>
+          </div>
+          <input type="file" id="eq-photo-input" accept="image/*" style="display:none;">
+          <div class="form-error" id="err-eq-photo"><i class="ph ph-warning-circle"></i><span></span></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="eq-brand"><span data-i18n="equipment.brand_label">Бренд</span> <span class="req">*</span></label>
+          <input id="eq-brand" type="text" class="form-input" maxlength="100" data-i18n-ph="equipment.brand_ph" placeholder="HP, Dell, Cisco…">
+          <div class="form-error" id="err-eq-brand"><i class="ph ph-warning-circle"></i><span></span></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="eq-model"><span data-i18n="equipment.model_label">Модель</span> <span class="req">*</span></label>
+          <input id="eq-model" type="text" class="form-input" maxlength="100" data-i18n-ph="equipment.model_ph" placeholder="LaserJet Pro M404">
+          <div class="form-error" id="err-eq-model"><i class="ph ph-warning-circle"></i><span></span></div>
+        </div>
+      </div>
+
+      <!-- ── Шаг 2: учётные номера + размещение ─────────────────────── -->
+      <div id="eq-step-2" class="ct-step" style="display:none;">
+        <div class="form-group">
+          <label class="form-label" for="eq-inventory"><span data-i18n="equipment.inventory_label">Инвентарный номер</span> <span class="req">*</span></label>
+          <input id="eq-inventory" type="text" class="form-input" maxlength="50" data-i18n-ph="equipment.inventory_ph" placeholder="INV-001">
+          <div class="form-error" id="err-eq-inventory"><i class="ph ph-warning-circle"></i><span></span></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="eq-serial" data-i18n="equipment.serial_label">Серийный номер</label>
+          <input id="eq-serial" type="text" class="form-input" maxlength="100" data-i18n-ph="equipment.serial_ph" placeholder="SN-XXXXXX">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="eq-location" data-i18n="equipment.location_label">Расположение</label>
+          <input id="eq-location" type="text" class="form-input" maxlength="255" data-i18n-ph="equipment.location_ph" placeholder="Кабинет 204">
+        </div>
+      </div>
+
+      <!-- ── Шаг 3: эксплуатация + заметки ──────────────────────────── -->
+      <div id="eq-step-3" class="ct-step" style="display:none;">
+        <div class="form-group">
+          <label class="form-label" for="eq-purchase" data-i18n="equipment.purchase_date_label">Дата покупки</label>
+          <input id="eq-purchase" type="date" min="1970-01-01" max="9999-12-31" class="form-input">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="eq-warranty" data-i18n="equipment.warranty_until_label">Гарантия до</label>
+          <input id="eq-warranty" type="date" min="1970-01-01" max="9999-12-31" class="form-input">
+          <div class="form-error" id="err-eq-warranty"><i class="ph ph-warning-circle"></i><span></span></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="eq-notes" data-i18n="equipment.notes_label">Заметки</label>
+          <textarea id="eq-notes" class="form-input" rows="3" maxlength="2000" data-i18n-ph="equipment.notes_ph" placeholder="Комплектация, особенности…"></textarea>
+        </div>
+      </div>
+
+      <div class="alert alert-error hidden" id="err-eq" style="margin-top:.75rem;"><i class="ph ph-warning-circle"></i><span id="err-eq-text"></span></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary is-pending" id="btn-eq-next">
+        <span id="eq-next-label" data-i18n="common.continue">Далее</span> <i class="ph ph-arrow-right"></i>
+      </button>
+      <button class="btn btn-secondary" id="btn-eq-back" style="display:none;"><i class="ph ph-arrow-left"></i> <span data-i18n="common.back">Назад</span></button>
+      <button class="btn btn-secondary" data-close-modal="equipment-modal" data-i18n="common.cancel">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Equipment: delete confirm ═════════════════════════════════ -->
+<div class="modal-backdrop" id="equipment-delete-modal">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-card-icon" style="background:var(--clr-error-light); color:var(--clr-error);"><i class="ph-bold ph-trash"></i></div>
+      <div class="modal-header-text">
+        <h3 class="modal-title" data-i18n="equipment.delete_title">Удалить технику</h3>
+        <p class="modal-subtitle" data-i18n="equipment.delete_subtitle">Действие необратимо</p>
+      </div>
+      <button class="modal-close" data-close-modal="equipment-delete-modal"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <p><span data-i18n="equipment.delete_lead">Будет удалена единица техники</span> <strong id="eq-del-name"></strong>.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="btn-eq-delete-confirm"><i class="ph ph-trash"></i> <span data-i18n="equipment.btn_delete">Удалить</span></button>
+      <button class="btn btn-secondary" data-close-modal="equipment-delete-modal" data-i18n="common.cancel">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Equipment: photo viewer ═══════════════════════════════════ -->
+<div class="modal-backdrop" id="equipment-photo-modal">
+  <div class="modal modal-photo">
+    <div class="modal-header">
+      <div class="modal-header-text">
+        <h3 class="modal-title" data-i18n="equipment.photo_view_title">Фото техники</h3>
+      </div>
+      <button class="modal-close" data-close-modal="equipment-photo-modal"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="modal-body equipment-photo-view">
+      <img id="eq-photo-view-img" src="" alt="">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-close-modal="equipment-photo-modal" data-i18n="common.close">Закрыть</button>
+    </div>
+  </div>
+</div>

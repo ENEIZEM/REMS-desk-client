@@ -45,6 +45,11 @@ import '../../lib/char-counter.js';   // авто-счётчики символ�
 import { hidePageLoader }       from '../../lib/page-loader.js';
 import { consumePinPass }       from '../../lib/pin-gate.js';
 import { requirePinUnlock }     from './pin-lock.js';
+import { q }                    from './dom-utils.js';
+import { initSidebar }          from './chrome/sidebar.js';
+import { initUserDropdown }     from './chrome/user-dropdown.js';
+import { initNotificationsButton } from './chrome/notifications-button.js';
+import { initMembers, loadMembers } from './members.js';
 
 // Hide the pre-paint navigation overlay the INSTANT JS starts running.
 // Per the revised timing spec ("page started rendering" = drop the
@@ -74,10 +79,10 @@ if (!consumePinPass()) {
 // TAB NAVIGATION
 // ─────────────────────────────────────────────────────────────────
 // `notifications` is no longer a top-level tab — the full feed lives
-// inside the Overview tab via #overview-notifs. Keeping the legacy
-// hash alias `#notifications` is handled below (it redirects to
-// overview so old toast → href links don't 404).
-const TAB_IDS = ['overview', 'requests', 'catalog', 'partners', 'members', 'contracts', 'org', 'profile', 'solo-home', 'equipment'];
+// inside each role's overview slot. Keeping the legacy hash alias
+// `#notifications` is handled below (it redirects to overview so old
+// toast → href links don't 404).
+const TAB_IDS = ['overview', 'requests', 'catalog', 'partners', 'members', 'contracts', 'org', 'profile', 'solo-home'];
 let currentTab = 'overview';
 
 function switchTab(name, { updateHash = true } = {}) {
@@ -170,148 +175,12 @@ if (location.hash === '#settings') switchTab('profile', { updateHash: false });
 else applyHashTab();
 
 // ─────────────────────────────────────────────────────────────────
-// USER DROPDOWN — opens on hover (with a small close-delay so a slow
-// mouse-glide from the avatar to a menu item doesn't drop the panel).
-// Click still toggles for touch devices and keyboard users.
+// CHROME — user dropdown, sidebar toggle, notifications bell. Each is
+// self-contained in ./chrome/*; they only need switchTab injected.
 // ─────────────────────────────────────────────────────────────────
-const userDropdown = q('#user-dropdown');
-const userMenuWrap = q('.user-menu-wrap');
-let _ddCloseTimer = null;
-
-/* Chrome's `backdrop-filter` does NOT composite for an element nested
-   inside an ancestor that also has `backdrop-filter` — the dropdown
-   used to render as plain translucent white inside the navbar. The
-   fix: physically MOVE the dropdown out of the navbar to document.body
-   on mount, then position it via `position: fixed` against the wrap's
-   bounding box. The trigger still fires hover/click handlers on the
-   wrap (which stays in the navbar), but the panel itself paints in a
-   sibling stacking context — no parent filter to fight with. */
-if (userDropdown && userDropdown.parentElement !== document.body) {
-  document.body.appendChild(userDropdown);
-  userDropdown.style.position = 'fixed';
-}
-
-/* Re-anchor the floating panel to the wrap's bottom-right corner. The
-   dropdown stays open during this call (we run it whenever the panel
-   becomes visible OR the viewport resizes). The 6 px gap matches the
-   CSS `top: calc(100% + 6px)` rule used in the unmoved layout. */
-function positionDD() {
-  if (!userDropdown || !userMenuWrap) return;
-  const rect = userMenuWrap.getBoundingClientRect();
-  // Anchor by the wrap's RIGHT edge (panel's right aligns with wrap's
-  // right) and its BOTTOM (panel's top sits 6 px below). Using
-  // pageX/pageY would shift the panel on scroll because we use
-  // `position: fixed`; fixed elements are viewport-coordinated, so
-  // viewport rects from getBoundingClientRect are exactly right.
-  userDropdown.style.top   = `${rect.bottom + 6}px`;
-  userDropdown.style.right = `${window.innerWidth - rect.right}px`;
-  userDropdown.style.left  = 'auto';
-}
-window.addEventListener('resize', positionDD);
-
-function openDD()  {
-  if (_ddCloseTimer) { clearTimeout(_ddCloseTimer); _ddCloseTimer = null; }
-  positionDD();
-  userDropdown?.classList.remove('hidden');
-}
-function closeDD() { userDropdown?.classList.add('hidden'); }
-function deferCloseDD() {
-  if (_ddCloseTimer) clearTimeout(_ddCloseTimer);
-  _ddCloseTimer = setTimeout(closeDD, 120);
-}
-
-userMenuWrap?.addEventListener('mouseenter', openDD);
-userMenuWrap?.addEventListener('mouseleave', deferCloseDD);
-/* The relocated panel listens for hover too, so the slow-mouse-glide
-   from avatar to dropdown doesn't drop it. mouseenter on the panel
-   cancels the close timer; mouseleave starts a fresh one. */
-userDropdown?.addEventListener('mouseenter', openDD);
-userDropdown?.addEventListener('mouseleave', deferCloseDD);
-
-q('#btn-user-menu')?.addEventListener('click', (e) => {
-  e.stopPropagation();
-  if (userDropdown?.classList.contains('hidden')) openDD();
-  else closeDD();
-});
-// Tap outside the wrap AND outside the dropdown collapses the menu.
-document.addEventListener('click', (e) => {
-  if (!userMenuWrap || !userDropdown) return;
-  if (userMenuWrap.contains(e.target)) return;
-  if (userDropdown.contains(e.target)) return;
-  closeDD();
-});
-
-q('#dd-profile')?.addEventListener('click',  () => { closeDD(); switchTab('profile'); });
-// Org row inside the dropdown → switch to the org tab. Only meaningful for
-// approved members (otherwise the tab is hidden and switchTab() no-ops).
-q('#dd-org-link')?.addEventListener('click', () => { closeDD(); switchTab('org'); });
-q('#btn-logout')?.addEventListener('click',  () => logout());
-
-// ─────────────────────────────────────────────────────────────────
-// SIDEBAR TOGGLE (floating chrome)
-// ─────────────────────────────────────────────────────────────────
-// The toggle now drives `body[data-sidebar="open"|"closed"]`. CSS owns
-// the visual transitions — JS just flips the attribute. State persists
-// across reloads via localStorage so users who collapsed it stay
-// collapsed; default if nothing stored is "open".
-const SIDEBAR_LS_KEY = 'rems_sidebar_state';
-const sidebar       = q('#sidebar');
-const sidebarToggle = q('#sidebar-toggle');
-
-function applySidebarState(state) {
-  if (state !== 'open' && state !== 'closed') state = 'open';
-  document.body.setAttribute('data-sidebar', state);
-  try { localStorage.setItem(SIDEBAR_LS_KEY, state); } catch (_) {}
-}
-
-// Restore persisted state on boot:
-//   · narrow screens get auto-collapsed (the floating sidebar overlays
-//     content on mobile — defaulting to open eats the screen)
-//   · wider screens honour the user's last choice, defaulting to open
-const isNarrow = window.matchMedia?.('(max-width: 768px)')?.matches;
-try {
-  const saved = localStorage.getItem(SIDEBAR_LS_KEY);
-  if (isNarrow)         applySidebarState('closed');
-  else if (saved === 'closed') applySidebarState('closed');
-} catch (_) {}
-
-sidebarToggle?.addEventListener('click', () => {
-  const current = document.body.getAttribute('data-sidebar') || 'open';
-  applySidebarState(current === 'open' ? 'closed' : 'open');
-});
-
-// On narrow screens, close the sidebar when the user clicks anywhere
-// OUTSIDE it (it overlays content there, so taps on content imply
-// "done with the menu"). On desktop this is a no-op — the sidebar is
-// part of the layout and shouldn't auto-collapse.
-document.addEventListener('click', (e) => {
-  if (!window.matchMedia?.('(max-width: 768px)')?.matches) return;
-  if (document.body.getAttribute('data-sidebar') !== 'open') return;
-  if (sidebar?.contains(e.target))      return;
-  if (sidebarToggle?.contains(e.target)) return;
-  applySidebarState('closed');
-});
-
-// ─────────────────────────────────────────────────────────────────
-// NOTIFICATIONS BUTTON
-// ─────────────────────────────────────────────────────────────────
-// Bell now jumps to the OVERVIEW tab (full feed lives there since the
-// dedicated notifications tab was removed). Scrolls the overview-notifs
-// card into view so the list is immediately visible.
-q('#btn-notifications')?.addEventListener('click', () => {
-  // Role-aware: solo-юзер не имеет вкладки 'overview' — его лента живёт
-  // в 'solo-home' (#solo-notifs-slot). Раньше тут был жёсткий
-  // switchTab('overview'), что для solo вело «в никуда».
-  const isSolo   = document.body.dataset.role === 'solo';
-  const tabName  = isSolo ? 'solo-home' : 'overview';
-  const notifSel = isSolo ? '#solo-notifs-slot' : '#overview-notifs';
-  switchTab(tabName);
-  // Defer one frame so switchTab's DOM updates are applied before we
-  // scroll — otherwise the panel is still display:none.
-  requestAnimationFrame(() => {
-    document.querySelector(notifSel)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  });
-});
+initUserDropdown({ switchTab });
+initSidebar();
+initNotificationsButton({ switchTab });
 
 // ─────────────────────────────────────────────────────────────────
 // MODAL HELPERS — primitives live in ./dashboard/ui-helpers.js.
@@ -385,6 +254,11 @@ async function loadProfile() {
       if (!window.__remsRoleBooted || roleChanged || (detectedRole === 'solo' && statusChanged)) {
         const wasBooted = window.__remsRoleBooted;
         window.__remsRoleBooted = true;
+        // Прячем сайдбар-навигацию на время (ре)монтажа: до того как
+        // оркестратор роли скроет лишние пункты, статический HTML показал бы
+        // полный набор вкладок (флеш «8 вкладок»). Возвращаем в finally
+        // loadProfile, когда состояние навигации уже корректное.
+        document.body.classList.remove('rems-nav-ready');
         // КРИТИЧНО при смене дашборда: предыдущий orchestrator мог
         // выставить inline style.display='none' на tab-panels и
         // nav-items (hide() из role-helpers.js). Эти inline styles
@@ -533,7 +407,6 @@ async function loadProfile() {
     // (с invite/remove кнопками), employee — «Коллеги» (read-only, без
     // статистики/удаления, объединено с техникой в employee/team.js).
     q('#nav-item-members').style.display   = hasOrg                ? '' : 'none';
-    q('#no-org-notice')?.classList.toggle('hidden', hasOrg);
 
     // ── Populate the «Ваша организация» tab ────────────────────
     if (hasOrg && org) populateOrgTab(org, role, canEditOrg, canEditLim, user.global_role === 'sys_admin');
@@ -550,6 +423,9 @@ async function loadProfile() {
   } finally {
     stopLoader();
     _loadProfileInflight = false;
+    // Навигация уже в корректном для роли состоянии — показываем её
+    // (снимали видимость на время монтажа, см. role-router выше).
+    document.body.classList.add('rems-nav-ready');
     // No hidePageLoader() here — the overlay was already dismissed at
     // module-init time (right after imports). Per the new spec, the
     // moment dashboard JS started running counts as "page rendered".
@@ -582,6 +458,12 @@ wireMediaAttach({
   onSuccess:   () => {
     toast(t('toasts.avatar_updated'), 'ok');
     loadProfile();
+    // Свой аватар отображается и в списке коллег/сотрудников (там та же
+    // строка members.list с avatar.url). loadProfile() обновляет только
+    // профиль — освежаем и members-списки (legacy tab + owner/employee
+    // team рендерят свой список по событию).
+    loadMembers().catch(() => {});
+    window.dispatchEvent(new CustomEvent('rems:reload-members'));
   },
   titleKey: 'profile.media_avatar_title',
   hintKey:  'profile.media_avatar_hint',
@@ -697,342 +579,11 @@ wireMediaAttach({
 });
 
 // ─────────────────────────────────────────────────────────────────
-// MEMBERS
+// MEMBERS — tab renderer, remove/decision modals and the invite flow
+// live in ./members.js. Current profile is injected for self/owner
+// checks; loadMembers is imported above for switchTab + socket refresh.
 // ─────────────────────────────────────────────────────────────────
-/* ── Members tab renderer ─────────────────────────────────────────
-   Renders TWO lists:
-     • #pending-list  → owner-only review queue with Approve/Reject
-                        buttons inline on each row
-     • #approved-list → directory of approved members (owner first,
-                        rest alphabetical), no action buttons (clicking
-                        a future row could open a member profile drawer).
-   Each row uses the same identity-card layout as the profile/org
-   header strip: avatar + name + masked email/phone + department +
-   "В организации с <date>". */
-
-function formatJoinDate(iso) {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleDateString(getLang() === 'en' ? 'en-US' : 'ru-RU', {
-    day: '2-digit', month: 'long', year: 'numeric',
-  });
-}
-
-function memberRowHTML(m, opts = {}) {
-  const isPending = opts.pending === true;
-  const isOwner   = m.org_role === 'owner';
-  const isSelf    = _userProfile?.id != null && Number(_userProfile.id) === Number(m.id);
-
-  // Avatar tile: image if URL present, otherwise initials.
-  const avatarHTML = m.avatar?.url
-    ? `<img src="${escapeHTML(m.avatar.url)}" alt="">`
-    : `<span>${escapeHTML(initials(m.full_name))}</span>`;
-
-  // Contact line — prefer email, fall back to phone. Both pre-masked.
-  const contact = m.email_masked || m.phone_masked || '—';
-
-  // Secondary meta line: department · (joined-date | applied-date).
-  const dateKey = isPending ? 'members.applied_at' : 'members.joined_at';
-  const dateStr = t(dateKey, { date: formatJoinDate(m.joined_at) });
-  const dept    = m.department || t('members.no_department');
-
-  // "Это вы" chip — теперь в ПРАВОМ столбце (тот же слот что и
-  // remove-trash у owner'а), чтобы все per-row controls были
-  // выровнены вертикально. Из имени убран.
-  const selfBadge = '';
-  const selfChipRight = (isSelf && !isPending)
-    ? `<span class="members-row-self" data-ct-tip="${t('members.you')}" aria-label="${t('members.you')}"><i class="ph-bold ph-user"></i></span>`
-    : '';
-
-  // Stats pills — only meaningful on approved rows; pending users
-  // haven't been assigned any requests yet.
-  const stats = !isPending && m.stats ? `
-    <div class="members-row-stats">
-      <span class="members-stat is-active" title="${t('members.stat_active')}">
-        <span class="members-stat-num">${m.stats.active ?? 0}</span>
-        <span>${t('members.stat_active')}</span>
-      </span>
-      <span class="members-stat is-closed" title="${t('members.stat_closed')}">
-        <span class="members-stat-num">${m.stats.closed ?? 0}</span>
-        <span>${t('members.stat_closed')}</span>
-      </span>
-    </div>` : '';
-
-  // Right-side action cluster. Pending → Approve / Reject; Approved →
-  // role chip + (for the owner viewing OTHERS) a remove button.
-  const canRemove = !isPending && !isSelf && !isOwner && _userProfile?.org_role === 'owner';
-  let rightHTML;
-  if (isPending) {
-    rightHTML = `
-      <div class="members-row-actions">
-        <button class="btn btn-secondary btn-sm btn-approve" data-id="${m.id}">
-          <i class="ph ph-check"></i>
-          <span>${t('members.approve')}</span>
-        </button>
-        <button class="btn btn-danger btn-sm btn-reject" data-id="${m.id}">
-          <i class="ph ph-x"></i>
-          <span>${t('members.reject')}</span>
-        </button>
-      </div>`;
-  } else {
-    rightHTML = `
-      <div class="members-row-actions">
-        <span class="badge ${isOwner ? 'badge-role-owner' : 'badge-role-employee'}">${t(isOwner ? 'roles.owner' : 'roles.employee')}</span>
-        ${selfChipRight ? selfChipRight : ''}
-        ${canRemove ? `
-          <button class="members-row-delete btn-remove" data-id="${m.id}" data-name="${escapeHTML(m.full_name)}"
-                  data-ct-tip="${t('members.remove')}" aria-label="${t('members.remove')}">
-            <i class="ph-bold ph-trash"></i>
-          </button>` : ''}
-      </div>`;
-  }
-
-  // Текст инвайта/заявки. Показываем ТОЛЬКО на pending (approved
-  // юзеры уже не нуждаются в этой context-line).
-  const inviteMsg = isPending && m.invite_message
-    ? `<div class="members-row-invite-msg" title="${escapeHTML(m.invite_message)}">
-         <i class="ph ph-chat-circle-text"></i>
-         <span>${escapeHTML(m.invite_message)}</span>
-       </div>`
-    : '';
-
-  return `
-    <div class="members-row" data-id="${m.id}">
-      <div class="avatar avatar-md members-row-avatar">${avatarHTML}</div>
-      <div class="members-row-text">
-        <div class="members-row-name">
-          ${escapeHTML(m.full_name)}
-          ${selfBadge}
-        </div>
-        <div class="members-row-contact">${escapeHTML(contact)}</div>
-        <div class="members-row-meta">
-          <span>${escapeHTML(dept)}</span>
-          <span class="members-row-sep">·</span>
-          <span>${escapeHTML(dateStr)}</span>
-        </div>
-        ${inviteMsg}
-      </div>
-      ${stats}
-      ${rightHTML}
-    </div>`;
-}
-
-async function loadMembers() {
-  const tabEl = q('#tab-members');
-  const stopLoader = tabEl ? attachLoader({ container: tabEl }) : null;
-  try {
-    const data = await members.list();
-    const approved = data.data?.approved || [];
-    const pending  = data.data?.pending  || [];
-
-    // ── Pending section (owner-only — backend returns [] for non-owners). ──
-    const pendingSection = q('#pending-section');
-    const pendingList    = q('#pending-list');
-    if (pendingList) {
-      if (!pending.length) {
-        if (pendingSection) pendingSection.style.display = 'none';
-      } else {
-        if (pendingSection) pendingSection.style.display = '';
-        pendingList.innerHTML = pending.map(m => memberRowHTML(m, { pending: true })).join('');
-        pendingList.querySelectorAll('.btn-approve').forEach(btn => btn.addEventListener('click', () => manageMember(btn.dataset.id, 'approved')));
-        pendingList.querySelectorAll('.btn-reject') .forEach(btn => btn.addEventListener('click', () => manageMember(btn.dataset.id, 'rejected')));
-      }
-    }
-
-    // ── Approved directory. Always shown (empty-state if 0 — shouldn't
-    //    happen since the caller themselves is in the list, but keep
-    //    the fallback for safety). ──
-    const approvedList = q('#approved-list');
-    const countBadge   = q('#approved-count');
-    if (approvedList) {
-      if (!approved.length) {
-        approvedList.innerHTML = `
-          <div class="empty-state">
-            <i class="ph ph-users"></i>
-            <p class="empty-state-title">${t('members.empty')}</p>
-          </div>`;
-      } else {
-        approvedList.innerHTML = approved.map(m => memberRowHTML(m)).join('');
-        // Wire the per-row remove buttons. Native confirm() is fine
-        // for now — a custom modal can replace it later if the rest
-        // of the UI gets polished further.
-        approvedList.querySelectorAll('.btn-remove').forEach(btn => {
-          btn.addEventListener('click', () => removeMember(btn.dataset.id, btn.dataset.name));
-        });
-      }
-    }
-    if (countBadge) countBadge.textContent = String(approved.length);
-  } catch (err) {
-    toast(errorMessage(err), 'error');
-  } finally {
-    stopLoader?.();
-  }
-}
-
-/* Pending target for the remove-member modal. Set on open by
-   `removeMember()`, consumed by the modal's confirm-button click. */
-let _pendingRemoveMemberId = null;
-
-function removeMember(userId, name) {
-  if (!userId) return;
-  _pendingRemoveMemberId = userId;
-  const nameEl = q('#remove-member-name');
-  if (nameEl) nameEl.textContent = name || '—';
-  const reasonEl = q('#remove-member-reason');
-  if (reasonEl) reasonEl.value = '';   // сброс при каждом открытии
-  openModal('remove-member-modal');
-}
-
-q('#btn-remove-member-confirm')?.addEventListener('click', async () => {
-  const id = _pendingRemoveMemberId;
-  if (!id) return;
-  const btn = q('#btn-remove-member-confirm');
-  const reason = (q('#remove-member-reason')?.value || '').trim().slice(0, 500);
-  setLoading(btn, true);
-  try {
-    await members.remove(id, reason);
-    closeModal('remove-member-modal');
-    toast(t('members.removed_toast'), 'ok');
-    _pendingRemoveMemberId = null;
-    loadMembers();
-    // owner/team.js рендерит свой собственный список — сигналим ему
-    // перерисоваться (loadMembers пишет в legacy #approved-list,
-    // которого в owner-team-разметке нет).
-    window.dispatchEvent(new CustomEvent('rems:reload-members'));
-  } catch (err) {
-    toast(errorMessage(err), 'error');
-  } finally {
-    setLoading(btn, false);
-  }
-});
-
-// Owner Ресурсы (owner/team.js) просит открыть модалку исключения —
-// переиспользуем общий removeMember() flow с модалкой #remove-member-modal.
-window.addEventListener('rems:remove-member', (e) => {
-  const { id, name } = e.detail || {};
-  removeMember(id, name);
-});
-
-/* ── Member decision modal (approve / reject join-request) ──────────
-   owner/team.js диспатчит 'rems:member-decision' с {id, name, message}
-   когда owner кликает «Рассмотреть» на pending-плашке. Открываем
-   #member-decision-modal, показываем сообщение соискателя, даём
-   написать опц. текст решения. Accept/Reject → members.manage(). */
-let _pendingDecisionId = null;
-
-window.addEventListener('rems:member-decision', (e) => {
-  const { id, name, message } = e.detail || {};
-  if (!id) return;
-  _pendingDecisionId = id;
-  const nameEl = q('#member-decision-name');
-  if (nameEl) nameEl.textContent = name || '—';
-  // Сообщение соискателя — показываем блок только если оно есть.
-  const msgWrap = q('#member-decision-applicant-msg');
-  const msgText = q('#member-decision-applicant-msg-text');
-  const trimmed = (message || '').trim();
-  if (msgWrap) msgWrap.style.display = trimmed ? '' : 'none';
-  if (msgText) msgText.textContent = trimmed;
-  // Сброс текста решения при каждом открытии.
-  const txt = q('#member-decision-text');
-  if (txt) txt.value = '';
-  openModal('member-decision-modal');
-});
-
-async function submitMemberDecision(action) {
-  const id = _pendingDecisionId;
-  if (!id) return;
-  const acceptBtn = q('#btn-member-decision-accept');
-  const rejectBtn = q('#btn-member-decision-reject');
-  const message = (q('#member-decision-text')?.value || '').trim().slice(0, 500);
-  setLoading(acceptBtn, true);
-  setLoading(rejectBtn, true);
-  try {
-    await members.manage(id, action, message);
-    closeModal('member-decision-modal');
-    toast(t(action === 'approved' ? 'members.approved_toast' : 'members.rejected_toast'), 'ok');
-    _pendingDecisionId = null;
-    loadMembers();
-    // owner/team.js рендерит собственный список — просим перерисоваться.
-    window.dispatchEvent(new CustomEvent('rems:reload-members'));
-  } catch (err) {
-    toast(errorMessage(err), 'error');
-  } finally {
-    setLoading(acceptBtn, false);
-    setLoading(rejectBtn, false);
-  }
-}
-
-q('#btn-member-decision-accept')?.addEventListener('click', () => submitMemberDecision('approved'));
-q('#btn-member-decision-reject')?.addEventListener('click', () => submitMemberDecision('rejected'));
-
-async function manageMember(userId, action) {
-  try {
-    await members.manage(userId, action);
-    const msg = getLang() === 'en'
-      ? (action === 'approved' ? 'Approved' : 'Rejected')
-      : (action === 'approved' ? 'Одобрено' : 'Отклонено');
-    toast(msg, 'ok');
-    loadMembers();
-  } catch (err) { toast(errorMessage(err), 'error'); }
-}
-
-// Form-guard: серая кнопка пока контакт не введён.
-const _inviteGuard = wireFormGuard({
-  button:   '#btn-invite-confirm',
-  required: [{ sel: '#invite-contact', kind: 'text' }],
-});
-
-q('#btn-invite')?.addEventListener('click', () => {
-  // Чистим поля от прошлого инвайта и пересчитываем guard, иначе
-  // кнопка осталась бы «зелёной» (refresh слушает только input/change).
-  if (q('#invite-contact')) q('#invite-contact').value = '';
-  if (q('#invite-message')) q('#invite-message').value = '';
-  const cnt = q('#invite-message-count');
-  if (cnt) cnt.textContent = '0';
-  q('#err-invite-contact')?.classList.remove('show');
-  q('#err-invite')?.classList.add('hidden');
-  _inviteGuard?.refresh();
-  openModal('invite-modal');
-});
-
-// Live-счётчик для invite-message (как в join-modal).
-const _inviteMsgEl = q('#invite-message');
-const _inviteMsgCnt = q('#invite-message-count');
-_inviteMsgEl?.addEventListener('input', () => {
-  if (_inviteMsgCnt) _inviteMsgCnt.textContent = String(_inviteMsgEl.value.length);
-});
-
-q('#btn-invite-confirm')?.addEventListener('click', async () => {
-  const contact = q('#invite-contact')?.value.trim();
-  const message = (q('#invite-message')?.value || '').trim();
-
-  q('#err-invite-contact')?.classList.remove('show');
-  q('#err-invite')?.classList.add('hidden');
-
-  if (!contact) { setFieldError('err-invite-contact', t('errors.required')); return; }
-
-  const btn = q('#btn-invite-confirm');
-  setLoading(btn, true);
-  try {
-    // Все приглашения вступают как employee — outerside the invite flow,
-    // и инвайтить «нового владельца» нельзя. Бэкенд игнорирует second arg.
-    await members.invite(contact, message || undefined);
-    closeModal('invite-modal');
-    toast(t('toasts.invitation_sent'), 'ok');
-    if (q('#invite-contact')) q('#invite-contact').value = '';
-    if (_inviteMsgEl) _inviteMsgEl.value = '';
-    if (_inviteMsgCnt) _inviteMsgCnt.textContent = '0';
-    // Обновляем списки: legacy members tab И owner «Ресурсы» (team.js
-    // слушает rems:reload-members). Так новый инвайт/приглашённый
-    // сотрудник появляется сразу, без перезагрузки страницы.
-    loadMembers().catch(() => {});
-    window.dispatchEvent(new CustomEvent('rems:reload-members'));
-  } catch (err) {
-    const errEl = q('#err-invite');
-    if (errEl)  { errEl.classList.remove('hidden'); errEl.classList.add('show'); }
-    const txt = q('#err-invite-text');
-    if (txt)    txt.textContent = errorMessage(err);
-  } finally { setLoading(btn, false); }
-});
+initMembers({ getProfile: () => _userProfile });
 
 // ─────────────────────────────────────────────────────────────────
 // SOCKET
@@ -1220,16 +771,5 @@ window.addEventListener('rems:reload-members', () => {
   loadMembers().catch(err => console.warn('[reload-members]', err));
 });
 
-// ─────────────────────────────────────────────────────────────────
-// UTILS
-// ─────────────────────────────────────────────────────────────────
-function q(sel) { return document.querySelector(sel); }
-
-function escapeHTML(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+// q() / escapeHTML() moved to ./dom-utils.js (imported at top).
 

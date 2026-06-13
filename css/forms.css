@@ -1,0 +1,121 @@
+/* ── 6. Form controls ─────────────────────────────────────────── */
+.form-group { display: flex; flex-direction: column; gap: var(--space-1); }
+
+.form-label {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--clr-text-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.form-label .req { color: var(--clr-error); }
+
+.form-input,
+.form-select,
+.form-textarea {
+  width: 100%;
+  padding: 0.5625rem var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--clr-text-primary);
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-md);
+  transition: border-color var(--trans-fast), box-shadow var(--trans-fast);
+  outline: none;
+  line-height: 1.5;
+}
+.form-input::placeholder,
+.form-textarea::placeholder { color: var(--clr-text-muted); }
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+  border-color: var(--clr-accent);
+  box-shadow: 0 0 0 3px rgb(15 207 152 / 0.12);
+}
+.form-input.error,
+.form-select.error,
+.form-textarea.error { border-color: var(--clr-error); }
+.form-input.error:focus,
+.form-select.error:focus { box-shadow: 0 0 0 3px rgb(239 68 68 / 0.12); }
+
+.form-hint  { font-size: var(--text-xs); color: var(--clr-text-muted); }
+/* Per-field error: icon (!) on the left, message text on the right.
+   `padding-left: var(--space-3)` pulls the icon over to sit directly
+   under the .input-wrap .input-icon (lock / envelope etc.), so the
+   warning marker line up with the column of icons above it. The icon
+   is sized to match those same icons (1rem) and rendered as an inline
+   flex container with line-height:1 so its glyph sits on the visual
+   center of the text line rather than dropping below baseline. */
+.form-error {
+  font-size: var(--text-xs);
+  color: var(--clr-error);
+  display: none;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding-left: var(--space-3);
+}
+.form-error.show { display: flex; }
+.form-error i {
+  font-size: 1rem;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+}
+
+/* Input with icon */
+.input-wrap { position: relative; display: flex; align-items: center; }
+.input-wrap .input-icon { position: absolute; left: var(--space-3); color: var(--clr-text-muted); pointer-events: none; font-size: 1rem; display: flex; }
+.input-wrap .form-input  { padding-left: calc(var(--space-3) + 1.25rem + var(--space-2)); }
+.input-wrap .input-action {
+  position: absolute; right: var(--space-2);
+  background: none; border: none; padding: var(--space-1);
+  color: var(--clr-text-muted); cursor: pointer;
+  border-radius: var(--radius-sm); display: flex;
+  transition: color var(--trans-fast);
+}
+.input-wrap .input-action:hover { color: var(--clr-text-primary); }
+
+/* Select arrow */
+.form-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%2394a3b8' viewBox='0 0 256 256'%3E%3Cpath d='M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--space-3) center;
+  padding-right: calc(var(--space-3) + 1.5rem);
+  cursor: pointer;
+}
+.form-textarea { resize: vertical; min-height: 80px; }
+
+/* Alert (container variant): coloured box with an icon column and
+   message text. Vertical-center the icon against the text so single
+   and multi-line messages both look balanced; icon size matches the
+   in-input icons (.input-wrap .input-icon = 1rem) so visually the
+   warning column lines up with the lock / envelope icons above it. */
+.alert {
+  display: none;
+  align-items: center;
+  gap: var(--space-3);
+  /* horizontal padding is var(--space-3) so the icon's left edge lines
+     up with the icon column inside .input-wrap above (the lock icon
+     sits at left: var(--space-3) of its input). */
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  border: 1px solid transparent;
+}
+.alert.show  { display: flex; }
+.alert-error   { background: var(--clr-error-light);   color: var(--clr-error-dark);  border-color: color-mix(in srgb, var(--clr-error) 35%, transparent); }
+.alert-success { background: var(--clr-success-light); color: var(--clr-success-dark);  border-color: var(--clr-success); }
+.alert-warning { background: var(--clr-warning-light); color: #92400e;  border-color: #fde68a; }
+.alert-info    { background: var(--clr-info-light);    color: #1e40af;  border-color: #bfdbfe; }
+.alert i {
+  flex-shrink: 0;
+  font-size: 1rem;
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+}
+

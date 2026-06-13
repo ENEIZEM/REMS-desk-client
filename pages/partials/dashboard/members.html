@@ -1,0 +1,84 @@
+<!-- ══════════════════════════════════════════════════════════════
+     MODAL: Confirm remove member (owner-only).
+     Shown by JS before calling DELETE /api/orgs/members/:id. Member
+     name lands in #remove-member-name via JS so we don't need a per-
+     row modal copy.
+     ══════════════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" id="remove-member-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-card-icon danger"><i class="ph-bold ph-user-minus"></i></div>
+      <div class="modal-header-text">
+        <h3 class="modal-title" data-i18n="members.remove_confirm_title">Удалить сотрудника</h3>
+        <p class="modal-subtitle" data-i18n="members.remove_confirm_subtitle">Подтвердите удаление участника из организации</p>
+      </div>
+      <button class="modal-close" data-close-modal="remove-member-modal"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <p class="form-hint" style="margin-bottom:.75rem;">
+        <span data-i18n="members.remove_confirm_lead">Сотрудник</span>
+        <strong id="remove-member-name" style="color:var(--clr-text-primary);">—</strong>
+        <span data-i18n="members.remove_confirm_tail">будет исключён из организации. История его заявок останется привязанной к нему.</span>
+      </p>
+      <!-- Опциональная причина — увидит исключённый в уведомлении. -->
+      <div class="form-group">
+        <label class="form-label" for="remove-member-reason" data-i18n="members.remove_reason_label">Причина (необязательно)</label>
+        <textarea id="remove-member-reason" class="form-input" rows="3" maxlength="500"
+                  data-i18n-ph="members.remove_reason_ph"
+                  placeholder="Например: завершение проекта."></textarea>
+        <div class="form-helper" style="font-size:var(--text-xs); color:var(--clr-text-muted); margin-top:.25rem;">
+          <span data-i18n="members.remove_reason_hint">До 500 символов. Текст увидит сотрудник в уведомлении.</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="btn-remove-member-confirm">
+        <i class="ph-bold ph-user-minus"></i>
+        <span data-i18n="members.remove">Удалить из организации</span>
+      </button>
+      <button class="btn btn-secondary" data-close-modal="remove-member-modal" data-i18n="common.cancel">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Member decision modal (approve / reject join-request) ──────
+     Owner Ресурсы: рассмотреть заявку соискателя. Опц. текст увидит
+     соискатель в уведомлении. -->
+<div class="modal-backdrop" id="member-decision-modal">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-card-icon"><i class="ph-bold ph-user-check"></i></div>
+      <div class="modal-header-text">
+        <h3 class="modal-title" data-i18n="members.decision_title">Заявка на вступление</h3>
+        <p class="modal-subtitle">
+          <span id="member-decision-name" style="font-weight:600;">—</span>
+        </p>
+      </div>
+      <button class="modal-close" data-close-modal="member-decision-modal"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <!-- Сообщение заявителя (если было) -->
+      <div id="member-decision-applicant-msg" class="solo-invite-message" style="display:none; margin-bottom:.75rem;">
+        <span class="solo-invite-message-label" data-i18n="members.decision_applicant_msg">Сообщение соискателя:</span>
+        <span class="solo-invite-message-text" id="member-decision-applicant-msg-text"></span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="member-decision-text" data-i18n="members.decision_reason_label">Сообщение соискателю (необязательно)</label>
+        <textarea id="member-decision-text" class="form-input" rows="3" maxlength="500"
+                  data-i18n-ph="members.decision_reason_ph"
+                  placeholder="Например: добро пожаловать в команду!"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" id="btn-member-decision-accept">
+        <i class="ph ph-check"></i>
+        <span data-i18n="notifications.actions.accept">Принять</span>
+      </button>
+      <button class="btn btn-danger" id="btn-member-decision-reject">
+        <i class="ph ph-x"></i>
+        <span data-i18n="notifications.actions.reject">Отклонить</span>
+      </button>
+      <button class="btn btn-secondary" data-close-modal="member-decision-modal" data-i18n="common.cancel">Отмена</button>
+    </div>
+  </div>
+</div>

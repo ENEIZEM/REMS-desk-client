@@ -14,14 +14,10 @@
 import { t, applyTranslations, onLangChange } from '../../../../i18n.js';
 import { fmtBytes } from '../../format.js';
 import { renderRowChip } from '../../badges.js';
-import { mountRequests, renderAll as renderRequests } from '../_shared/requests.js';
-
-// Тип-фильтр вкладки → фильтр общего модуля заявок.
-function mapType(type) {
-  if (type === 'free') return 'free';
-  if (type === 'created' || type === 'closed') return 'mine';
-  return 'all';
-}
+import {
+  mountRequests, renderAll as renderRequests,
+  registerListFilter, onRequestsUpdated, periodStart,
+} from '../_shared/requests.js';
 
 export function mountEmployeeRequests(profile) {
   const slot = document.querySelector('#employee-requests-slot');
@@ -50,8 +46,30 @@ export function mountEmployeeRequests(profile) {
   const typeKey   = 'rems_emp_req_type';
   const periodKey = 'rems_emp_req_period';
   let activeScope  = localStorage.getItem(scopeKey)  || 'all';
-  let activeType   = localStorage.getItem(typeKey)   || 'created';
+  let activeType   = localStorage.getItem(typeKey)   || 'all_mine';
   let activePeriod = localStorage.getItem(periodKey) || 'month';
+
+  // Реальный фильтр ленты (scope × type × period). Раньше pickers были
+  // декоративными: scope/period игнорировались, а created/closed оба
+  // сводились к «мои» — коллеги автора вообще не видели заявок орги.
+  registerListFilter('emp-requests-tab', (r, ctx) => {
+    if (activeScope === 'internal' && !r.is_internal) return false;
+    if (activeScope === 'partner'  &&  r.is_internal) return false;
+
+    const from = periodStart(activePeriod);
+    if (from) {
+      // Для «закрытых» период считаем по closed_at, для остальных — по created_at.
+      const anchor = activeType === 'closed' ? (r.closed_at || r.created_at) : r.created_at;
+      if (anchor && new Date(anchor) < from) return false;
+    }
+
+    const mineAuthor   = Number(r.author_id) === ctx.selfId;
+    const mineAssignee = Number(r.assigned_to_id) === ctx.selfId;
+    if (activeType === 'created') return mineAuthor;
+    if (activeType === 'closed')  return r.status === 'closed' && (mineAssignee || mineAuthor);
+    if (activeType === 'free')    return r.status === 'new' && Number(r.contractor_org_id) === ctx.myOrgId;
+    return mineAuthor || mineAssignee; // all_mine
+  });
 
   slot.innerHTML = `
     <div class="page-header page-header--with-action">
@@ -80,7 +98,7 @@ export function mountEmployeeRequests(profile) {
         </div>
       </div>
       <div class="profile-card-body requests-feed-body" id="employee-requests-body"
-           data-requests-list data-rq-filter="${mapType(activeType)}"></div>
+           data-requests-list data-rq-filter="emp-requests-tab"></div>
     </div>
 
     <div class="profile-two-col employee-two-col" style="margin-top:1rem;">
@@ -127,11 +145,8 @@ export function mountEmployeeRequests(profile) {
     setFeaturePill(slot.querySelector('#emp-lim-docs-flag'),   L.allow_document_uploads);
   }
 
-  // Pickers.
-  const reRender = () => {
-    const body = slot.querySelector('#employee-requests-body');
-    if (body) { body.dataset.rqFilter = mapType(activeType); renderRequests(); }
-  };
+  // Pickers — фильтр зарегистрирован выше, достаточно перерисовать.
+  const reRender = () => renderRequests();
   wirePopoverPicker(slot, '[data-req-scope-picker]', (id) => {
     activeScope = id;
     localStorage.setItem(scopeKey, id);
@@ -153,6 +168,17 @@ export function mountEmployeeRequests(profile) {
 
   // Заявки: лента + дорожная карта (общий модуль).
   mountRequests(profile).catch(err => console.warn('[employee requests]', err));
+
+  // Живой счётчик «активных заявок» в лимитах: не-терминальные заявки,
+  // где моя орг — заказчик (лимит max_active_requests касается заказчика).
+  onRequestsUpdated('emp-requests-limits', (list) => {
+    const el = document.querySelector('#employee-requests-slot [data-active-req-count]');
+    if (!el) return;
+    const myOrg = Number(org?.id);
+    el.textContent = String(list.filter(r =>
+      Number(r.client_org_id) === myOrg && !['closed', 'cancelled'].includes(r.status)
+    ).length);
+  });
 
   // Re-render на смену языка: перерисуем динамические куски (лимиты
   // с template-литералами, picker active-label, body).
@@ -228,8 +254,8 @@ function renderLimitsRows(org) {
   const empCount = org?.current_employee_count ?? 0;
   const empMax   = L.max_employees ?? '—';
   const reqMax   = L.max_active_requests ?? '—';
-  // Активных заявок пока 0 (нет requests-API). Подставится позже.
-  const reqCur   = 0;
+  // Живое значение проставляет подписка onRequestsUpdated (см. mount).
+  const reqCur   = `<span data-active-req-count>0</span>`;
   const perReq  = t('profile.per_request');
   const upTo    = t('profile.up_to');
   const pcsUnit = t('profile.pcs_unit');

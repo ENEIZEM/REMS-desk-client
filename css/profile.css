@@ -1,0 +1,907 @@
+/* ── 28. Profile rows ─────────────────────────────────────────── */
+/* Every profile row — single value, two-line stacked, button, badge, or the
+   last row of a card — renders at the SAME fixed height. We do that by
+   anchoring on a min-height that comfortably fits the TALLEST variant
+   (2-line stacked content) and flex-centering whatever is in there.
+   The last-child row keeps its height (no border-bottom) so the bottom of
+   the card body lines up visually with the row above.
+   Label is dark navy-ink for stronger contrast on white; the sub-line
+   stays muted with a touch more breathing room so the two lines don't
+   feel cramped. */
+.profile-row {
+  display: flex; align-items: center; justify-content: space-between;
+  min-height: 3.5rem;                      /* unified row height across variants */
+  padding: .35rem 0;
+  border-bottom: 1px solid var(--clr-border);
+  gap: var(--space-3);
+}
+.profile-row:last-child   { border-bottom: none; }
+/* Labels + values both wear the navy-gray accent so the row reads as a
+   coherent navy block, with the brand teal reserved for actionable
+   elements only. Sub-line stays muted — it's secondary context. */
+.profile-row-label        { font-size: var(--text-sm); font-weight: 600; color: var(--clr-navy); line-height: 1.3; }
+.profile-row-value        { font-size: var(--text-sm); color: var(--clr-navy); line-height: 1.3; }
+.profile-row-sub          { font-size: var(--text-xs); color: var(--clr-text-muted); line-height: 1.3; margin-top: .25rem; }
+
+/* ── 28a. Profile «П»-layout ──────────────────────────────────── */
+.avatar-xxl { width: 7rem; height: 7rem; font-size: 2.25rem; }
+
+.profile-identity-card {
+  display: flex; align-items: center; gap: var(--space-6);
+  padding: var(--space-6); margin-bottom: var(--space-6);
+}
+.profile-identity-info       { flex: 1; min-width: 0; }
+.profile-identity-name       { font-size: var(--text-2xl); font-weight: 700; color: var(--clr-navy); margin-bottom: .25rem; }
+.profile-identity-meta       { font-size: var(--text-sm); color: var(--clr-text-secondary); margin-bottom: .6rem; }
+.profile-identity-badges     { display: flex; gap: .5rem; flex-wrap: wrap; }
+
+.profile-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-6); align-items: flex-start; }
+.profile-col     { display: flex; flex-direction: column; gap: var(--space-6); min-width: 0; }
+@media (max-width: 960px) { .profile-two-col { grid-template-columns: 1fr; } }
+
+.profile-card                { padding: 0; overflow: hidden; }
+.profile-card-header {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--clr-border);
+  background: var(--clr-bg-subtle);
+}
+/* Хедер с правым кластером actions (фильтр + mark-all-read) — заголовок
+   растягивается, actions прижимаются к правому краю. На узких экранах
+   actions переносятся под заголовок. */
+.profile-card-header--with-actions { flex-wrap: wrap; }
+.profile-card-header--with-actions .profile-card-title { flex: 1 1 auto; min-width: 0; }
+.profile-card-header--with-actions .notif-header-actions { margin-left: auto; }
+.profile-card-icon {
+  width: 2rem; height: 2rem; border-radius: var(--radius-md);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem; flex-shrink: 0;
+}
+/* Header icons are uniformly navy-gray — same accent the "Между
+   организациями" guide card uses on the landing. Subscription's gold
+   crown is the single intentional pop of colour and stays as-is. */
+.profile-card-icon.teal { background: var(--clr-navy-light); color: var(--clr-navy); }
+.profile-card-icon.navy { background: var(--clr-navy-light); color: var(--clr-navy); }
+.profile-card-icon.gold { background: #fef3c7;               color: #b45309; }
+/* slate — нейтральная серо-синяя подложка для блока «Завершённые
+   контракты». Цвет иконки — насыщенный slate (#475569), сопоставимый по
+   контрасту с navy (#2a3c55), а не блёклый --clr-text-secondary (#6b7280),
+   иначе иконка выглядела тусклее остальных. */
+.profile-card-icon.slate { background: var(--clr-navy-light); color: #475569; }
+.profile-card-title    { font-size: var(--text-base); font-weight: 700; color: var(--clr-text-primary); flex: 1; min-width: 0; }
+.profile-card-trailing { font-size: var(--text-xs);   color: var(--clr-text-muted); }
+/* Symmetric vertical padding so the FIRST and LAST rows render exactly
+   the same height as the rows in the middle. The previous extra
+   padding-top on the first row made it visibly taller — that lived as
+   a one-off and made cards with the same number of rows look uneven. */
+.profile-card-body     { padding: var(--space-2) var(--space-5); }
+
+.profile-card-edit-toggle {
+  background: transparent; border: none; cursor: pointer;
+  width: 2rem; height: 2rem; border-radius: var(--radius-md);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--clr-text-muted); transition: background .15s, color .15s;
+}
+.profile-card-edit-toggle:hover { background: var(--clr-bg-muted); color: var(--clr-accent); }
+
+.profile-edit-actions { display: flex; gap: .5rem; justify-content: flex-end; padding-top: var(--space-3); }
+
+/* Contacts card */
+.profile-contact-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: var(--space-4) 0; border-bottom: 1px solid var(--clr-border); gap: var(--space-3);
+}
+.profile-contact-row:last-child { border-bottom: none; }
+.profile-contact-main  { display: flex; align-items: center; gap: .75rem; min-width: 0; }
+.profile-contact-main i { font-size: 1.2rem; }
+.profile-contact-value { font-size: var(--text-sm); color: var(--clr-text-primary); font-weight: 500; }
+.profile-masked        { font-size: var(--text-xs); color: var(--clr-text-muted); margin-left: .35rem; }
+.profile-verify-badge  { white-space: nowrap; }
+.profile-verify-badge.verified   { background: var(--clr-success-light); color: var(--clr-success-dark); }
+.profile-verify-badge.unverified { background: var(--clr-error-light); color: var(--clr-error-dark); }
+
+/* Feature pills (Limits card): «Разрешено» / «Запрещено» chip
+   with a small icon. Width matches other right-side values. */
+.feature-pill {
+  display: inline-flex; align-items: center; gap: .35rem;
+  font-size: var(--text-xs); font-weight: 700;
+  padding: .3rem .65rem; border-radius: 999px;
+  white-space: nowrap;
+}
+.feature-pill.allowed { background: var(--clr-success-light); color: var(--clr-success-dark); }
+.feature-pill.denied  { background: var(--clr-error-light);                color: var(--clr-error-dark); }
+
+/* Icon+text badges — universal renderer for status / type / role.
+   Pattern: soft background (10–15% opacity of accent), accent-tinted icon
+   in front, bolder text. Used in both the org header strip and inside
+   the info card rows. */
+.badge.badge-icon {
+  display: inline-flex; align-items: center; gap: .4rem;
+  padding: .3rem .7rem; border-radius: 999px;
+  /* xs text + 700 weight matches the rest of the row labels — same
+     informational density as a sub-line, just contained in a pill.
+     Icon at 1rem so it doesn't dwarf the text. Regular Phosphor variant
+     (not duotone) per #7 — solid glyph reads cleaner against the filled
+     pill background. */
+  font-size: var(--text-xs); font-weight: 700;
+  white-space: nowrap; vertical-align: middle;
+}
+.badge.badge-icon i { font-size: 1rem; flex-shrink: 0; }
+
+/* Org-type variants — customer = teal soft, contractor = navy soft */
+.badge-type-customer   { background: var(--clr-accent-light); color: var(--clr-accent); }
+.badge-type-contractor { background: var(--clr-navy-light);   color: var(--clr-navy);   }
+
+/* Role variants — 4 distinct tints. Owner gold, then navy/teal/grey. */
+/* Унифицированные ролевые цвета. Все новые / неиспользуемые в других
+   ролях системы:
+     • owner     → burnt-orange (#c2410c / bg #ffedd5)
+     • employee  → rose (#be185d / bg #fce7f3)
+     • sys_admin → indigo (#4338ca / bg #e0e7ff)
+   Золотой остаётся за подпиской, navy — за фирменным CTA,
+   teal/accent — за brand-primary, success/error — за статусами.
+*/
+.badge-role-owner      { background: #ffedd5; color: #c2410c; }   /* burnt-orange */
+.badge-role-sys-admin  { background: #e0e7ff; color: #4338ca; }   /* indigo */
+.badge-role-manager    { background: var(--clr-navy-light);   color: var(--clr-navy);   }
+.badge-role-technician { background: var(--clr-accent-light); color: var(--clr-accent); }
+.badge-role-employee   { background: #fce7f3; color: #be185d; }   /* rose */
+
+/* Org logo column — was `inline-block` which baseline-aligns weirdly
+   inside the flex `.profile-identity-card` parent (the avatar got a
+   tiny vertical drift compared to the profile-tab avatar, which uses
+   `.avatar-upload` with `inline-flex`). Unifying on `inline-flex`
+   makes both tabs lay out identically. */
+.profile-org-logo { display: inline-flex; position: relative; cursor: default; }
+.profile-org-logo.editable { cursor: pointer; }
+.profile-org-logo.editable:hover .avatar-upload-overlay { opacity: 1; }
+
+/* Stack the label and a smaller muted sub-line vertically inside the
+   left cell. Used for rows where additional context (dates, masked
+   contacts, "до N шт./заявку · X MB") sits as the second line. */
+/* Stacked label + sub-line. Keep the overall row height (set by
+   .profile-row min-height) constant, just tighten the gap between the
+   two lines so they don't feel cramped — the freed pixels show up as
+   extra space to the top/bottom edges via the flex centering. */
+.profile-row-label-stack {
+  display: flex; flex-direction: column; gap: .1rem;
+  min-width: 0;
+  justify-content: center;
+}
+
+/* Edit-pencil button right of each value — stays compact, no layout shift */
+.profile-row-edit-wrap {
+  display: inline-flex; align-items: center; gap: .4rem;
+  font-size: var(--text-sm); color: var(--clr-text-primary);
+}
+.profile-row-edit-wrap .profile-row-value { color: inherit; }
+.profile-row-edit-btn {
+  background: transparent; border: none; cursor: pointer; padding: .15rem;
+  color: var(--clr-text-muted); display: inline-flex; align-items: center;
+  border-radius: var(--radius-sm); transition: color .15s, background .15s;
+  font-size: 1.1rem;     /* matches the row-action button icons (#4) */
+}
+.profile-row-edit-btn:hover { color: var(--clr-accent); background: var(--clr-bg-muted); }
+.profile-row-edit-btn.sla-edit-btn { opacity: .7; }
+.profile-row-edit-btn.sla-edit-btn:hover { opacity: 1; }
+
+/* ─── Unified row-action buttons (Сменить / Привязать) ─────────────
+   Sits to the right of every profile row that opens a wizard. Two
+   colour variants — neutral "change" and accent-green "link" — keep
+   the visual language consistent across email, phone, telegram,
+   password, PIN, etc. They are intentionally softer than the primary
+   .btn-primary so the cards don't feel like a sea of CTAs. */
+/* Profile-row CTA. Plugs into the .btn variable system so the global
+   hover algorithm (.btn:hover reads --btn-bg-hover etc.) applies — the
+   class only sets layout (padding, min-width, gap) and the default tone
+   tokens; specific variants below override the colour matrix. */
+.btn.btn-row-action {
+  /* DEFAULT (no variant) = light secondary-like tile. Hover goes
+     DARKER (light→dark) and the label/icon shift to brand accents. */
+  --btn-bg:           var(--clr-bg-subtle);
+  --btn-color:        var(--clr-text-primary);
+  --btn-border:       var(--clr-border);
+  --btn-icon:         var(--clr-text-muted);
+  --btn-bg-hover:     var(--clr-accent-light);
+  --btn-color-hover:  var(--clr-navy);
+  --btn-border-hover: var(--clr-accent);
+  --btn-icon-hover:   var(--clr-accent);
+
+  display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
+  padding: .42rem .85rem;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--btn-border);
+  white-space: nowrap;
+  /* All row-action CTAs share one fixed width so the column on the right
+     of every profile row lines up vertically. 9.5rem comfortably fits
+     both "Привязать" + envelope/phone icon AND the English "Change" /
+     "Link" labels without truncation. */
+  min-width: 9.5rem;
+}
+.btn.btn-row-action i { font-size: 1.1rem; }     /* (#4) match pencil + info */
+
+/* ─── Media preview frame & crop overlay ──────────────────────────
+   Used by media-attach.js. The frame anchors a centred preview <img>
+   and an absolutely-positioned overlay that DIMS the parts of the
+   image that will be cropped away — circle for avatars, square for
+   logos. Omit the cropPreview option to show the full image with no
+   overlay (other content types). */
+.media-preview-frame {
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+  width: 18rem; max-width: 100%;
+  aspect-ratio: 1 / 1;
+  margin: 0 auto;
+  padding: 0;
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  /* Checker pattern — two shades of muted gray. Reads as "transparent /
+     image area" against any image colour (was a single light surface
+     so light-on-light images vanished). */
+  background-color: #e5e7eb;
+  background-image:
+    linear-gradient(45deg,  #f8fafc 25%, transparent 25%),
+    linear-gradient(-45deg, #f8fafc 25%, transparent 25%),
+    linear-gradient(45deg,  transparent 75%, #f8fafc 75%),
+    linear-gradient(-45deg, transparent 75%, #f8fafc 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+}
+.media-preview-frame > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+/* When the modal is going to crop the picked image to a centred
+   square (avatar / logo), preview should mirror that — show what the
+   user will actually GET, not the whole original. object-fit:cover
+   together with the overlay below makes the cut-away pixels visibly
+   darker so the user can spot framing problems before saving. */
+.media-preview-frame > img.media-preview-cover { object-fit: cover; }
+
+/* Overlay sits on top of the image, fully covering the frame. For the
+   circle / square crop variants the mask carves out the KEPT area so
+   only the discarded pixels keep the dark tint — the user reads the
+   final shape at a glance. */
+.media-crop-overlay {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  background: rgba(15, 23, 42, .55);   /* slate-900 / 55% — deeper than before for contrast on light images */
+}
+.media-crop-overlay.crop-circle {
+  -webkit-mask: radial-gradient(circle at center, transparent 0 calc(50% - 1px), #000 50%);
+          mask: radial-gradient(circle at center, transparent 0 calc(50% - 1px), #000 50%);
+  box-shadow: 0 0 0 2px var(--clr-accent) inset;
+  border-radius: 50%;
+}
+.media-crop-overlay.crop-square {
+  /* Whole frame is the kept area — overlay just outlines it. The
+     border-radius matches the parent .media-preview-frame so the
+     inset accent ring follows the frame's rounded corners instead
+     of clipping into a square inside the rounded frame. */
+  background: transparent;
+  box-shadow: 0 0 0 2px var(--clr-accent) inset;
+  border-radius: var(--radius-lg);
+}
+
+/* Avatar / org-logo tile hover affordance.
+   The overlay sits over the .avatar element (a perfect circle, border-
+   radius 50%) — match its shape so the dim layer follows the avatar
+   instead of bleeding into a square around it. Same rule applies to
+   the org logo, whose markup uses .profile-org-logo as the wrapper
+   but the inner element is still a round .avatar. */
+.avatar-upload,
+.profile-org-logo { position: relative; cursor: pointer; }
+.avatar-upload .avatar-upload-overlay,
+.profile-org-logo .avatar-upload-overlay {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(15, 23, 42, .45);
+  color: #fff;
+  font-size: 1.5rem;
+  opacity: 0;
+  transition: opacity var(--trans-fast);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.avatar-upload:hover    .avatar-upload-overlay,
+.profile-org-logo:hover .avatar-upload-overlay { opacity: 1; }
+
+/* "Upgrade subscription" CTA. Gold pill — same #e0b94f the chip-owner
+   uses. Variable-driven hover (light → darker) so the rule plays inside
+   the global .btn hover system rather than fighting it. Label = navy
+   ink; icon shifts from navy to slightly-deeper navy independently. */
+.btn.btn-upgrade-gold {
+  --btn-bg:           #e0b94f;
+  --btn-color:        var(--clr-navy);
+  --btn-border:       #e0b94f;
+  --btn-icon:         var(--clr-navy);
+  --btn-bg-hover:     #c9a23d;            /* one stop darker than #e0b94f */
+  --btn-color-hover:  var(--clr-navy);
+  --btn-border-hover: #c9a23d;
+  --btn-icon-hover:   #0b1d36;            /* deeper navy for icon channel */
+
+  display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
+  padding: .42rem .85rem;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--btn-border);
+  white-space: nowrap;
+  min-width: 9.5rem;
+}
+.btn.btn-upgrade-gold i { font-size: 1.1rem; }
+
+/* "Change" — navy fill. Same dark→lighter pattern as .btn-navy:
+   label + icon move together to slate-tinted off-white. */
+.btn.btn-row-action.btn-row-change {
+  --btn-bg:           var(--clr-navy);
+  --btn-color:        #fff;
+  --btn-border:       var(--clr-navy);
+  --btn-icon:         #fff;
+  --btn-bg-hover:     var(--clr-navy-hover);
+  --btn-color-hover:  #e2e8f0;
+  --btn-border-hover: var(--clr-navy-hover);
+  --btn-icon-hover:   #e2e8f0;
+}
+
+/* "Link" — jade-teal fill. Same as .btn-primary: bg darkens, label +
+   icon both go to mint-tinted off-white together. */
+.btn.btn-row-action.btn-row-link {
+  --btn-bg:           var(--clr-accent);
+  --btn-color:        #fff;
+  --btn-border:       var(--clr-accent);
+  --btn-icon:         #fff;
+  --btn-bg-hover:     var(--clr-accent-hover);
+  --btn-color-hover:  #ecfdf5;
+  --btn-border-hover: var(--clr-accent-hover);
+  --btn-icon-hover:   #ecfdf5;
+}
+
+/* ─── Row chip: text + icon, NO container ─────────────────────────────
+   Replaces the old badge-pill containers on read-only profile rows
+   (role / status / org-type / limit feature flags / dropdown role). The
+   chip carries its semantic colour on the text + duotone icon, so the
+   row looks airier and stays consistent with pencil-edit icons next door. */
+.row-chip {
+  display: inline-flex; align-items: center; gap: .4rem;
+  font-size: var(--text-sm); font-weight: 600; line-height: 1.3;
+  white-space: nowrap;
+}
+.row-chip i { font-size: 1.1rem; line-height: 1; }
+
+/* Semantic colours for the container-less in-row chips. Without a
+   pill background to lift them off the surface we need slightly more
+   saturated values than the old badge variants. Two-tone duotone icons
+   pick up the chip colour automatically (Phosphor reads the parent's
+   `color` for the primary layer). */
+.row-chip.chip-success { color: var(--clr-success); }
+.row-chip.chip-warning { color: var(--clr-warning); }
+.row-chip.chip-error   { color: var(--clr-error);   }
+.row-chip.chip-default { color: var(--clr-text-secondary); }
+/* Owner = soft gold tied to the brand palette (per user spec).
+   Other roles keep their teal/navy/muted tints — already saturated
+   enough to read against a plain white surface. */
+.row-chip.chip-owner      { color: #c2410c; }   /* burnt-orange */
+.row-chip.chip-sys-admin  { color: #4338ca; }   /* indigo */
+.row-chip.chip-manager    { color: var(--clr-navy); }
+.row-chip.chip-technician { color: var(--clr-accent); }
+/* Slate — gives the employee chip its own colour identity alongside
+   owner / manager / technician, matching .badge-role-employee. */
+.row-chip.chip-employee   { color: #be185d; }   /* rose */
+.row-chip.chip-customer   { color: var(--clr-accent); }
+.row-chip.chip-contractor { color: var(--clr-navy); }
+/* Раньше allowed=accent (нашёл brand) / denied=muted (серый) — это
+   сбивало с толку. Семантика: разрешено=успех (синий-success token),
+   запрещено=ошибка (красный-error). */
+.row-chip.chip-allowed    { color: var(--clr-success); }
+.row-chip.chip-denied     { color: var(--clr-error); }
+
+/* The icon variant used inside `.row-chip` is duotone — the i tag carries
+   `ph-duotone ph-<name>`. We do NOT touch the regular .ph rule above; this
+   selector just bumps the duotone alpha layer so it reads cleanly on white. */
+.row-chip i.ph-duotone { --ph-duotone-opacity: .55; }
+/* Subtle masked-contact preview pill inline in the header */
+.profile-masked-inline { color: var(--clr-text-secondary); font-size: var(--text-sm); }
+/* Separator dot between two masked contacts in the profile header.
+   Only insert it when BOTH siblings actually carry text — otherwise the
+   user sees a stray "·" after a single contact (the phone span is
+   always present in the DOM, just empty when the user has no phone). */
+.profile-masked-inline + .profile-masked-inline:not(:empty)::before { content: " · "; color: var(--clr-text-muted); }
+
+/* SLA rows — when wrapped inside .profile-row.sla-row-wide they inherit
+   the full row width (padding + border-bottom) of every other row. The
+   priority pill itself is just a label-styled span on the left. */
+.sla-row {
+  display: grid; grid-template-columns: 1fr auto; gap: .75rem;
+  padding: .5rem 0; border-bottom: 1px solid var(--clr-border); align-items: center;
+}
+.sla-row:last-child { border-bottom: none; }
+.sla-row-wide { /* uses .profile-row spacing already */ }
+.sla-pri {
+  font-size: var(--text-xs); font-weight: 700; padding: .25rem .6rem;
+  border-radius: 999px; text-transform: uppercase; letter-spacing: .04em; width: fit-content;
+}
+.sla-critical { background: var(--clr-error-light); color: var(--clr-error-dark); }
+.sla-high     { background: #fff7ed; color: #c2410c; }
+.sla-medium   { background: #fef3c7; color: #b45309; }
+.sla-low      { background: var(--clr-accent-light); color: var(--clr-accent); }
+.sla-val      { font-size: var(--text-base); font-weight: 600; color: var(--clr-text-primary); }
+.sla-input    { max-width: 6rem; text-align: center; padding: .3rem .5rem; }
+
+/* Tooltip — pure CSS hover */
+.profile-card-tooltip { position: relative; display: inline-flex; cursor: help; color: var(--clr-text-muted); font-size: 1.1rem; }
+.profile-card-tooltip:hover { color: var(--clr-accent); }
+/* When the tooltip wraps an inline content block (e.g. the current
+   session row) the 1.1rem boost from the info-icon use shouldn't
+   propagate to the children. */
+.profile-card-tooltip.session-current-block { font-size: inherit; cursor: help; }
+.profile-card-tooltip.session-current-block:hover { color: var(--clr-success); }
+/* The current-session block lives at the left edge of the row, so the
+   default right-anchored tooltip falls off the card. Anchor the popup
+   on the LEFT, below the text — fits inside the card on every width. */
+.profile-card-tooltip.session-current-block[data-tooltip-text]::after {
+  right: auto;
+  left: 0;
+  top: calc(100% + .35rem);
+}
+.profile-card-tooltip[data-tooltip-text]::after {
+  content: attr(data-tooltip-text);
+  position: absolute; right: 0; top: calc(100% + .35rem);
+  background: var(--clr-navy); color: #fff; padding: .5rem .65rem;
+  border-radius: var(--radius-md); font-size: var(--text-xs); line-height: 1.4;
+  white-space: normal; width: 230px; opacity: 0; pointer-events: none;
+  transition: opacity .15s; z-index: 50;
+  box-shadow: var(--shadow-md);
+}
+.profile-card-tooltip:hover::after,
+.profile-card-tooltip:focus::after { opacity: 1; }
+
+/* ── Notifications header (filter + mark-all-read row) ───────────
+   Объединяем сегмент-фильтр и кнопку «Прочитать все» в одной правой
+   части card-header'а. На узких экранах сворачиваются вертикально. */
+.notif-header-actions {
+  display: flex; align-items: center; gap: var(--space-3, .75rem);
+  flex-wrap: wrap;
+}
+
+/* Сегментированный фильтр (All / Unread). Компактная высота — равна
+   .btn-sm рядом стоящей кнопке «Прочитать все», чтобы они визуально
+   составляли одну линию. Pill-row хост + pill-buttons внутри. */
+.notif-filter {
+  display: inline-flex;
+  align-items: center;
+  background: var(--clr-bg-muted, #f1f5f9);
+  border-radius: 999px;
+  padding: 2px;
+  gap: 0;
+  height: 1.85rem;
+}
+.notif-filter-btn {
+  appearance: none; border: 0; background: transparent;
+  padding: 0 .65rem;
+  height: 100%;
+  font: inherit;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--clr-text-muted);
+  cursor: pointer;
+  border-radius: 999px;
+  display: inline-flex; align-items: center; gap: .35rem;
+  transition: background .15s, color .15s, box-shadow .15s;
+  white-space: nowrap;
+}
+.notif-filter-btn:hover {
+  color: var(--clr-text-primary);
+}
+.notif-filter-btn.is-active {
+  background: var(--clr-navy, #0f172a);
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(0,0,0,.08);
+}
+.notif-filter-btn:focus-visible {
+  outline: 2px solid var(--clr-accent);
+  outline-offset: 1px;
+}
+/* Маленький badge с количеством непрочитанных. */
+.notif-filter-count {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 1.1rem; height: 1rem; padding: 0 .3rem;
+  background: var(--clr-bg, #fff);
+  color: var(--clr-text-primary);
+  border-radius: 999px;
+  font-size: .65rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.notif-filter-btn.is-active .notif-filter-count {
+  background: rgba(255,255,255,.18);
+  color: #fff;
+}
+/* «Прочитать все» рядом с фильтром: тот же радиус что у обычных
+   кнопок (--radius-md), та же высота что у фильтра. */
+.notif-header-actions .btn-sm {
+  border-radius: var(--radius-md);
+  height: 1.85rem;
+  padding: 0 .75rem;
+}
+
+@media (max-width: 540px) {
+  /* Не даём всему хедеру вылезать за карточку — переносим actions
+     на новую строку под заголовком. */
+  .notif-header-actions { width: 100%; justify-content: flex-end; }
+}
+
+/* Page-header у сотрудника на Обзоре — оставляем как у других вкладок
+   (заголовок «Обзор» + описание). Шапка организации идёт ПОД ним.
+   Прежнее правило display:none убрано — пустой header был визуальным
+   регрессом по сравнению с Профилем/Контрактами. */
+/* Коллеги (members tab у сотрудника) — без блока статистики, по
+   требованию: «без их статистики». */
+body[data-role="employee"] .members-row-stats { display: none; }
+
+/* Members-row сообщение от заявителя/owner'а (pending only). Тонкая
+   muted-строка с иконкой чата, под основными meta. Truncate в одну
+   строку с tooltip для длинного текста. */
+.members-row-invite-msg {
+  display: flex; align-items: center; gap: .35rem;
+  margin-top: .25rem;
+  font-size: var(--text-xs);
+  color: var(--clr-text-muted);
+  font-style: italic;
+  max-width: 100%;
+}
+.members-row-invite-msg i {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+.members-row-invite-msg span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Team tab: одна строка коллеги (без stats / без remove) ──────
+   Используется в #tab-members для employee. Компактная карточка
+   аватар + имя + контакт + департамент + role-pill справа. */
+.team-colleague-row {
+  display: flex; align-items: center; gap: var(--space-3);
+  /* Padding строки = padding body / 2 → bg карточки при hover
+     остаётся в рамке блока с равным зазором по бокам. */
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  transition: background var(--trans-fast);
+}
+.team-colleague-row:hover { background: var(--clr-bg-subtle); }
+.team-colleague-row + .team-colleague-row { margin-top: .25rem; }
+/* Pending-плашка соискателя — мягкая жёлтая подсветка + рамка слева,
+   чтобы owner сразу видел очередь на рассмотрение. */
+.team-colleague-row--pending {
+  background: var(--clr-warning-light);
+  border-left: 3px solid var(--clr-warning, #f59e0b);
+}
+.team-colleague-row--pending:hover { background: var(--clr-warning-light); }
+/* Фирменный штрих коллег: у владельца — золотое кольцо аватара,
+   роль видна ещё до чтения бейджа. */
+.team-colleague-row--owner .avatar {
+  box-shadow: 0 0 0 2px #f59e0b, 0 0 0 4px #fef3c7;
+}
+/* Кольцо аватара по роли: владелец — золото, сотрудник — роза (цвет
+   роли employee, chip-employee). Так роль видна до чтения бейджа. */
+.team-colleague-row--employee .avatar {
+  box-shadow: 0 0 0 2px #f43f5e, 0 0 0 4px #ffe4e6;
+}
+/* Чип роли (Руководитель/Сотрудник) — одинаковая ширина у всех строк,
+   чтобы правый край списка не «гулял». «Руководитель» — самый длинный. */
+.badge-role-owner, .badge-role-employee {
+  min-width: 6.75rem; justify-content: center; text-align: center;
+}
+
+/* Кольца аватара/логотипа по роли — единый источник правды для шапки
+   профиля и логотипа организации. admin (sys_admin) перебивает роль. */
+.avatar--ring-owner    { box-shadow: 0 0 0 2px #f59e0b, 0 0 0 4px #fef3c7; }
+.avatar--ring-employee { box-shadow: 0 0 0 2px #f43f5e, 0 0 0 4px #ffe4e6; }
+.avatar--ring-admin    { box-shadow: 0 0 0 2px #8b5cf6, 0 0 0 4px #ede9fe; }
+/* Аватар e-mail/phone-инвайта — иконки вместо инициалов (человек ещё
+   не зарегистрирован, аватара нет). Нейтральная подложка. */
+.avatar.team-invite-avatar {
+  background: var(--clr-bg-muted);
+  color: var(--clr-text-secondary);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.05rem;
+}
+.team-colleague-text { flex: 1; min-width: 0; }
+.team-colleague-name {
+  font-weight: 600; font-size: var(--text-sm);
+  color: var(--clr-text-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.team-colleague-contact {
+  font-size: var(--text-xs); color: var(--clr-text-secondary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.team-colleague-meta {
+  font-size: var(--text-xs); color: var(--clr-text-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.team-colleague-rating {
+  display: inline-flex; align-items: center; gap: .15rem;
+  font-weight: 600; color: var(--clr-text-secondary);
+}
+.team-colleague-rating i { color: var(--clr-warning, #f59e0b); font-size: .85em; }
+.team-colleague-rating.is-empty { font-weight: 400; font-style: italic; color: var(--clr-text-muted); }
+/* Stats-кластер на строке коллеги у owner'а: active + closed counts. */
+.team-colleague-stats {
+  display: flex; align-items: center; gap: .5rem;
+  flex-shrink: 0;
+}
+.team-stat-pill {
+  /* Высота + шрифт как у статус-бейджей (.badge.badge-icon): xs / 700 /
+     padding .3rem .7rem — единый вид плашек по всему интерфейсу. */
+  font-size: var(--text-xs);
+  padding: .3rem .7rem;
+  border-radius: 999px;
+  background: var(--clr-bg-muted);
+  color: var(--clr-text-secondary);
+  font-weight: 700;
+  white-space: nowrap;
+}
+/* Бейдж роли в строке коллеги — те же размеры, что у статус-бейджей. */
+.team-role-badge {
+  padding: .3rem .7rem;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  border-radius: 999px;
+}
+.team-stat-pill.is-active { color: var(--clr-info, #1e40af); }
+.team-stat-pill.is-closed { color: var(--clr-success, #0d9488); }
+.team-stat-pill span { font-weight: 400; opacity: .8; margin-left: .15rem; }
+/* Actions-кластер справа: role-badge + self-chip + trash. */
+.team-colleague-actions {
+  display: flex; align-items: center; gap: .5rem;
+  flex-shrink: 0;
+}
+
+/* ── Employee org-header actions + leave-org ghost button ────────
+   В шапке организации справа кнопка «Покинуть организацию» — стиль
+   danger-ghost (текст красный, без рамки, на hover — мягкая красная
+   подложка). По дизайну не должна тянуть на себя внимание, но быть
+   очевидной когда юзер ищет действие. */
+.employee-org-header { position: relative; }
+.employee-org-header-actions {
+  display: flex; gap: var(--space-2);
+  align-items: flex-start;
+  margin-left: auto;
+}
+.btn-danger-ghost {
+  --btn-bg:           transparent;
+  --btn-color:        var(--clr-error);
+  --btn-border:       transparent;
+  --btn-icon:         var(--clr-error);
+  --btn-bg-hover:     rgba(239, 68, 68, .10);
+  --btn-color-hover:  var(--clr-error);
+  --btn-border-hover: rgba(239, 68, 68, .20);
+  --btn-icon-hover:   var(--clr-error);
+}
+
+/* ── Requests-feed body (карточки заявок/контрактов) ─────────────
+   Применяется к .profile-card-body с modifier-class — карточка
+   имеет ВСЁ оформление как у остальных profile-card'ов (header
+   с иконкой-тайл, title, tooltip-end), плюс body получает фикс
+   мин/макс высоту + скролл, а empty-state центруется. */
+.requests-feed-body {
+  padding: var(--space-2);
+  min-height: 9rem;
+  max-height: 60vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Tab с list-блоками (.tab-fill) ──────────────────────────────
+   Логика (M5): блоки растут по контенту, но имеют ПОТОЛОК, после
+   которого фиксируются и скроллятся внутри. Обе колонки всегда
+   равной высоты (grid stretch выравнивает по более «длинной»).
+
+   НЕ задаём фикс-height на tab-panel — иначе полупустые блоки
+   растягиваются во весь экран с пустотой. Вместо этого блок имеет
+   max-height = свободный viewport (минус место под navbar +
+   page-header + card-header + gap). Когда контента мало — high < max,
+   обе колонки stretch к natural-высоте более длинной. Когда контент
+   превышает max — блок упирается в max, body внутри получает scroll. */
+/* Переключаем two-col с grid на FLEX в .tab-fill: flex align-items:
+   stretch гарантирует, что обе колонки ВСЕГДА равной высоты (по более
+   «длинной»), а max-height на контейнере не даёт перерасти viewport —
+   тогда обе колонки замыкаются на потолок и скроллятся внутри. Grid
+   так не умел (row брал natural-высоту самого длинного без учёта
+   max-height детей → page-scroll + неравные блоки). */
+.tab-fill > .profile-two-col {
+  display: flex;
+  gap: var(--space-6);
+  align-items: stretch;
+  /* Потолок всей пары: 100vh минус верхняя хром-зона и минус gap. */
+  max-height: calc(100vh - 13rem - var(--space-6));
+  min-height: 0;
+}
+.tab-fill > .profile-two-col > .profile-col {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.tab-fill .fill-block {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;      /* заполняет высоту колонки → блоки равны */
+  min-height: 0;
+}
+.tab-fill .fill-block > .profile-card-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  max-height: none;
+}
+@media (max-width: 960px) {
+  /* На мобильных складываем колонки вертикально, без принудительной
+     равной высоты. */
+  .tab-fill > .profile-two-col {
+    flex-direction: column;
+    max-height: none;
+  }
+  .tab-fill .fill-block { max-height: 60vh; }
+}
+.requests-feed-body > .empty-state:only-child {
+  flex: 1 1 auto;
+  align-self: stretch;
+  justify-content: center;
+  min-height: 7rem;
+}
+
+/* card-header с правым кластером actions (фильтры + tooltip).
+   Заголовок гибкий по ширине, actions/tooltip прижаты вправо. */
+.card-header.card-header--with-actions {
+  display: flex; align-items: center; gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.card-header--with-actions .card-title { flex: 1 1 auto; min-width: 0; margin: 0; }
+.card-header--with-actions .notif-header-actions { margin-left: auto; }
+/* Если рядом с actions есть tooltip-инфоиконка — пусть стоит ПОСЛЕ
+   actions (правее), а не сразу после заголовка. */
+.card-header--with-actions .profile-card-tooltip { margin-left: var(--space-2); }
+
+/* Tooltip в правом углу card-header (после actions) — для случаев
+   когда мы хотим явно прижать его вправо вне рамок normal-flow. */
+.profile-card-header .profile-card-tooltip--end,
+.profile-card-header--with-actions .profile-card-tooltip {
+  margin-left: auto;
+}
+.profile-card-header--with-actions .notif-header-actions ~ .profile-card-tooltip,
+.profile-card-header--with-actions .notif-header-actions + .profile-card-tooltip {
+  margin-left: var(--space-2);
+}
+
+/* Plan-pill: маленький pill для значения «Free / Pro» справа от
+   строки. По дизайну — тариф в правой части пункта (B11). */
+.plan-pill {
+  display: inline-flex; align-items: center;
+  padding: .15rem .55rem;
+  border-radius: 999px;
+  background: var(--clr-bg-muted);
+  color: var(--clr-accent);
+  font-weight: 700;
+  font-size: var(--text-xs);
+  letter-spacing: .02em;
+}
+
+/* Inline-вариант — компактный padding для случаев когда empty-state
+   живёт в маленькой карточке с фикс-высотой. Иконка/текст наследуют
+   от базового .empty-state — размеры теперь единые. */
+.empty-state.empty-state--inline {
+  min-height: 6rem;
+  padding: var(--space-3) var(--space-2);
+}
+
+/* Когда empty-state — единственный ребёнок body карточки заявок
+   или уведомлений, тянем его на всю доступную высоту чтобы центровка
+   по вертикали работала. Узко-таргетированно, чтобы не сломать
+   многострочные profile-card'ы (Подписка/SLA и т.п.). */
+.solo-notifs-card .profile-card-body > .empty-state:only-child,
+.employee-notifs-card .profile-card-body > .empty-state:only-child {
+  flex: 1 1 auto;
+  align-self: stretch;
+  justify-content: center;
+}
+/* Лента уведомлений (notif-card body) — flex column. Также reduce
+   padding до space-2: вместе с notification-item padding space-2
+   суммарное расстояние от текста до border блока = регулярное
+   padding (как в profile-card'ах). */
+.solo-notifs-card .profile-card-body,
+.employee-notifs-card .profile-card-body {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-2);
+}
+
+/* ── Popover-picker (Period + Filter dropdowns) ──────────────────
+   Кнопка-пилл с caret + меню под ней. Стиль pill = .notif-filter
+   родственник; меню — белая карточка с тенью и border-radius. */
+.period-picker { position: relative; display: inline-block; }
+.picker-btn {
+  appearance: none; border: 1px solid var(--clr-border);
+  background: var(--clr-bg, #fff);
+  height: 1.85rem;
+  padding: 0 .65rem;
+  border-radius: 999px;
+  font: inherit;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--clr-text-primary);
+  cursor: pointer;
+  display: inline-flex; align-items: center; gap: .4rem;
+  transition: background .15s, border-color .15s;
+}
+.picker-btn:hover { background: var(--clr-bg-subtle); }
+.picker-btn:focus-visible {
+  outline: 2px solid var(--clr-accent);
+  outline-offset: 1px;
+}
+.picker-btn .picker-caret { font-size: .8em; opacity: .6; }
+.picker-menu {
+  position: absolute; right: 0; top: calc(100% + .35rem);
+  z-index: 50;
+  min-width: 11rem;
+  background: var(--clr-bg, #fff);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, .12);
+  padding: .25rem;
+  display: flex; flex-direction: column;
+  gap: 0;
+}
+.picker-menu[hidden] { display: none; }
+.picker-menu-item {
+  appearance: none; border: 0;
+  background: transparent;
+  padding: .45rem .65rem;
+  text-align: left;
+  font: inherit;
+  font-size: var(--text-sm);
+  color: var(--clr-text-primary);
+  cursor: pointer;
+  border-radius: calc(var(--radius-md) - 2px);
+  display: flex; align-items: center; gap: .5rem;
+  transition: background .12s;
+}
+.picker-menu-item:hover { background: var(--clr-bg-subtle); }
+.picker-menu-item.is-active {
+  background: var(--clr-navy);
+  color: #fff;
+}
+
+/* ── Session revoke button ────────────────────────────────────────
+   Маленькая иконка sign-out на каждой не-текущей сессии. Серая по
+   дефолту, на hover окрашивается в --clr-error: визуальный сигнал
+   что действие деструктивное. focus-ring для клавиатурной навигации. */
+.session-revoke-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1.85rem; height: 1.85rem;
+  background: transparent; border: 1px solid transparent;
+  border-radius: var(--radius-md, 8px);
+  color: var(--clr-text-muted);
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.session-revoke-btn:hover,
+.session-revoke-btn:focus-visible {
+  color: var(--clr-error);
+  background: var(--clr-error-soft, rgba(239, 68, 68, 0.10));
+  border-color: var(--clr-error-soft, rgba(239, 68, 68, 0.18));
+  outline: none;
+}
+

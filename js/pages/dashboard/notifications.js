@@ -207,9 +207,10 @@ export async function loadNotificationCount() {
 }
 
 export async function loadNotifications() {
-  // The notifications tab was retired — the full feed now lives inside
-  // the Overview tab. We render into #overview-notifs only.
-  const listEl = document.querySelector('#overview-notifs');
+  // The notifications tab was retired — the full feed now lives inside the
+  // role overview (slot задаётся setNotificationsTarget). Лоадер вешаем на
+  // актуальный контейнер рендера.
+  const listEl = document.querySelector(_renderTargetSelector);
   const stopLoader = listEl ? attachLoader({ container: listEl }) : null;
   try {
     const data = await notifsApi.getAll({ limit: 100 });
@@ -483,12 +484,12 @@ function ensureNotifToastContainer() {
 
 /* ── Rendering ───────────────────────────────────────────────── */
 
-// Render-target можно подменить — solo dashboard кладёт ленту в
-// собственный slot (#solo-notifs-slot), owner/employee — в #overview-notifs.
-// setNotificationsTarget вызывается из оркестратора дашборда.
-let _renderTargetSelector = '#overview-notifs';
+// Render-target задаёт оркестратор дашборда: solo → #solo-notifs-slot,
+// owner/employee → #employee-notifs-slot (карточка внутри overview-слота).
+// До первого setNotificationsTarget ленты на экране ещё нет.
+let _renderTargetSelector = '#employee-notifs-slot';
 export function setNotificationsTarget(selector) {
-  _renderTargetSelector = selector || '#overview-notifs';
+  _renderTargetSelector = selector || '#employee-notifs-slot';
   // Если в новом контейнере уже есть данные — рендерим в него сразу.
   renderOverviewNotifs();
 }
