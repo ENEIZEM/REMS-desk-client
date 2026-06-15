@@ -3,7 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Панель управления — REMS</title>
+  <title>Панель управления — REMS-desk</title>
+
+  <!-- Favicons / PWA / brand -->
+  <link rel="icon" href="/assets/favicon.ico" sizes="any">
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+  <link rel="manifest" href="/assets/site.webmanifest">
+  <meta name="theme-color" content="#2a3c55">
   <!-- All assets are self-hosted — see /fonts and /vendor at the
        project root. No external CDN required to run the dashboard. -->
   <link rel="stylesheet" href="../fonts/onest.css">
@@ -114,18 +123,8 @@
 
 <!-- ── Navbar ──────────────────────────────────────────────────── -->
 <header class="navbar">
-  <a href="/" class="navbar-brand">
-    <div class="navbar-logo"><i class="ph ph-wrench"></i></div>
-    <div>
-      <div class="navbar-title">REMS</div>
-      <!-- Bilingual-static tagline: applyTranslations() clobbers
-           innerHTML via textContent, so the colored spans can't live
-           behind a data-i18n key. -->
-      <div class="navbar-subtitle">
-        <span style="color:var(--clr-navy); font-weight:600;">Repair & Equipment</span>
-        <span style="color:var(--clr-accent); font-weight:600;">Management System</span>
-      </div>
-    </div>
+  <a href="/" class="navbar-brand" aria-label="REMS-desk">
+    <img class="navbar-logo-img" src="/assets/logo-full.svg" alt="REMS-desk — Repair & Equipment Management System">
   </a>
 
   <div class="navbar-spacer"></div>
@@ -197,7 +196,7 @@
   <aside class="sidebar" id="sidebar">
     <nav>
       <div class="nav-section">
-        <p class="nav-section-label" data-i18n="app.name">REMS</p>
+        <p class="nav-section-label" data-i18n="app.name">REMS-desk</p>
         <!-- Solo: «Главная». Owner/Employee: «Обзор». Подменяется JS-ом
              в solo dashboard'е (см. dashboards/solo/index.js). -->
         <button class="nav-item active" data-tab="overview">
@@ -256,6 +255,10 @@
         </button>
       </div>
     </nav>
+    <!-- Бренд-марка внизу сайдбара. -->
+    <a href="/" class="sidebar-footer" aria-label="REMS-desk">
+      <img src="/assets/logo.svg" alt="REMS-desk">
+    </a>
   </aside>
 
   <!-- ── Main content ─────────────────────────────────────────── -->

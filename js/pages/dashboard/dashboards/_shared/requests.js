@@ -21,7 +21,7 @@ import { openMediaViewer } from '../../../../lib/media-viewer.js';
 import { wireDocPreview } from '../../../../lib/doc-preview.js';
 import {
   requestListHTML, historyHTML, statusBadge, priorityBadge,
-  statusLabel, escapeHTML, typeChipHTML,
+  statusLabel, escapeHTML,
 } from './requests-ui.js';
 import { statusBadge as eqStatusBadge } from './equipment-ui.js';
 
@@ -434,12 +434,18 @@ function renderRoadmap(data) {
   const r = data.request;
   _requests = _requests.map(x => Number(x.id) === Number(r.id) ? r : x); // keep cache fresh
   const numEl = document.querySelector('#rrm-number'); if (numEl) numEl.textContent = r.request_number;
-  // Чипы статуса / приоритета(SLA) / типа — в блоке заголовка после номера.
+  // Подзаголовок = стороны заявки текстом: «Внутренняя · org» либо
+  // «По контракту · org1 → org2».
   const subEl = document.querySelector('#rrm-sub');
   if (subEl) {
-    subEl.classList.add('rrm-sub-chips');
-    subEl.innerHTML = `${statusBadge(r.status)}${priorityBadge(r.priority)}${typeChipHTML(r)}`;
+    subEl.classList.remove('rrm-sub-chips');
+    subEl.innerHTML = r.is_internal
+      ? `<i class="ph ph-buildings"></i> ${escapeHTML(t('requests.type_internal'))} · ${escapeHTML(r.client_org_name || '—')}`
+      : `<i class="ph ph-handshake"></i> ${escapeHTML(t('requests.type_contract'))} · ${escapeHTML(r.client_org_name || '—')} <i class="ph ph-arrow-right rq-parties-arrow"></i> ${escapeHTML(r.contractor_org_name || '—')}`;
   }
+  // Чипы статуса + SLA (приоритет) — справа от заголовка/подзаголовка.
+  const chipsEl = document.querySelector('#rrm-head-chips');
+  if (chipsEl) chipsEl.innerHTML = `${statusBadge(r.status)}${priorityBadge(r.priority)}`;
 
   // Сводка: бейджи → описание в мягкой панели → сетка «подпись/значение».
   // titleText — нативная подсказка на случай обрезанного значения;
@@ -456,23 +462,14 @@ function renderRoadmap(data) {
     ? escapeHTML([r.equipment.brand, r.equipment.model].filter(Boolean).join(' ') || r.equipment.inventory_number || '—')
     : escapeHTML(t('requests.no_equipment'));
   const eqIcon = r.equipment?.category_icon || 'ph-desktop';
-  const partiesVal = r.is_internal
-    ? escapeHTML(r.client_org_name || t('requests.internal_tag'))
-    : `${escapeHTML(r.client_org_name || '—')} <i class="ph ph-arrow-right rq-parties-arrow"></i> ${escapeHTML(r.contractor_org_name || '—')}`;
   const ratingVal = r.rating
     ? `<span class="rrm-sum-stars">${'<i class="ph-fill ph-star"></i>'.repeat(r.rating)}${'<i class="ph ph-star"></i>'.repeat(5 - r.rating)}</span>`
     : '';
-  const partiesTitle = r.is_internal
-    ? (r.client_org_name || '')
-    : `${r.client_org_name || '—'} → ${r.contractor_org_name || '—'}`;
-  // Сводка — только сетка «подпись/значение» (бейджи ушли в заголовок,
-  // описание-сообщение ушло под событие «Заявка создана» в истории).
+  // Сводка: техника · срок · оценка. Стороны переехали в подзаголовок,
+  // заказчик/исполнитель — в чипы событий истории.
   document.querySelector('#rrm-summary').innerHTML = `
     <div class="rrm-sum-grid">
-      ${sumItem(r.is_internal ? 'ph-buildings' : 'ph-handshake', 'requests.sum_parties', partiesVal, { titleText: partiesTitle, wide: !r.is_internal })}
       ${sumItem(eqIcon, 'requests.sum_equipment', eqVal, { titleText: r.equipment ? eqVal.replace(/&[a-z]+;/g, '') : '' })}
-      ${sumItem('ph-user', 'requests.sum_author', escapeHTML(r.author_name || '—'), { titleText: r.author_name || '' })}
-      ${sumItem('ph-user-gear', 'requests.sum_executor', escapeHTML(r.assignee_name || t('requests.unassigned')), { titleText: r.assignee_name || '' })}
       ${r.due_date ? sumItem('ph-calendar', 'requests.sum_due', escapeHTML(new Date(r.due_date).toLocaleDateString(getLang() === 'en' ? 'en-US' : 'ru-RU'))) : ''}
       ${ratingVal ? sumItem('ph-star', 'requests.sum_rating', ratingVal) : ''}
     </div>`;
@@ -487,7 +484,7 @@ function renderRoadmap(data) {
     return h;
   });
   const histEl = document.querySelector('#rrm-history');
-  histEl.innerHTML = historyHTML(history);
+  histEl.innerHTML = historyHTML(history, { author: r.author_name, assignee: r.assignee_name });
   loadAttachmentThumbs(histEl);
 
   renderRoadmapActions(r);
@@ -557,17 +554,30 @@ async function doAction(action, id) {
 function openFinishModal(id) {
   _roadmapId = id; _finishFiles = [];
   const ta = document.querySelector('#rq-resolution'); if (ta) ta.value = '';
-  document.querySelector('#rq-attach-list').innerHTML = '';
+  renderAttachList();                 // сетка вложений с квадратом «+» (без этого блок был пустым)
+  refreshFinishGuard();               // «Завершить» серая, пока нет описания
   clearFieldErrorById('err-rq-resolution'); hideAlertById('err-rq-finish');
   openModal('request-finish-modal');
   refreshCharCounters(document.querySelector('#request-finish-modal'));
 }
+// Серая «Завершить», пока поле «Что сделано» пустое.
+function refreshFinishGuard() {
+  const btn = document.querySelector('#btn-rq-finish-confirm');
+  if (btn) btn.classList.toggle('is-pending', !(document.querySelector('#rq-resolution')?.value || '').trim());
+}
 // Превью-тайлы вложений (миниатюра изображения / иконка PDF + имя + удалить).
 // Клик по тайлу (кроме «удалить») — повторный полный предпросмотр через
 // doc-preview (как у документа контракта).
-// Сетка квадратов: миниатюры вложений + квадрат «+» в конце. Лимит — 4
-// файла на одну запись статуса (3 фото + 1 документ — как раз ряд из 4).
-const RQ_ATTACH_MAX = 4;
+// Лимит на одну запись статуса берётся из лимитов организации
+// (max_photo_per_request + max_document_per_request), а НЕ хардкодится —
+// фронт должен соответствовать ограничениям БД/бэка. Бэкенд при confirm
+// дополнительно проверяет лимиты по каждому типу отдельно.
+function attachMax() {
+  const l = _profile?.organization?.limits;
+  if (!l) return 4;
+  const n = (Number(l.max_photo_per_request) || 0) + (Number(l.max_document_per_request) || 0);
+  return n > 0 ? n : 4;
+}
 function attachTilesHTML(files, prefix) {
   const tiles = files.map((f, i) => {
     const isImg = f.file.type.startsWith('image/');
@@ -579,8 +589,8 @@ function attachTilesHTML(files, prefix) {
       <button class="rq-attach-x" data-${prefix}-remove="${i}" aria-label="x"><i class="ph ph-x"></i></button>
     </div>`;
   });
-  // Квадрат «+» — пока не достигнут лимит.
-  if (files.length < RQ_ATTACH_MAX) {
+  // Квадрат «+» — пока не достигнут лимит организации.
+  if (files.length < attachMax()) {
     tiles.push(`<button type="button" class="rq-attach-sq rq-attach-sq--add" data-${prefix}-add aria-label="+"><i class="ph ph-plus"></i></button>`);
   }
   return tiles.join('');
@@ -626,6 +636,9 @@ function syncStars() {
     st.classList.toggle('ph', v > _ratingVal);
     st.classList.toggle('is-on', v <= _ratingVal);
   });
+  // «Закрыть заявку» серая, пока не выбрана оценка (как у прочих модалок).
+  const btn = document.querySelector('#btn-rq-close-confirm');
+  if (btn) btn.classList.toggle('is-pending', _ratingVal < 1);
 }
 async function confirmClose() {
   if (_ratingVal < 1) { setFieldError('err-rq-rating', t('requests.rating_required_msg')); return; }
@@ -738,6 +751,7 @@ function wireOnce() {
     const view = e.target.closest('[data-rq-att-view]');
     if (view) { const f = _finishFiles[Number(view.dataset.rqAttView)]; if (f) _finishDoc.reopenPreview(f.file); }
   });
+  document.querySelector('#rq-resolution')?.addEventListener('input', refreshFinishGuard);
   document.querySelector('#btn-rq-finish-confirm')?.addEventListener('click', confirmFinish);
 
   // Rating stars.
@@ -763,6 +777,10 @@ function wireOnce() {
     if (open) { openRoadmap(Number(open.dataset.rqOpen)); return; }
     const act = e.target.closest?.('#rrm-actions [data-rq-act]');
     if (act) { doAction(act.dataset.rqAct, Number(act.dataset.rqId)); return; }
+    // Кнопка «Закрыть» в футере дорожной карты рендерится динамически —
+    // статический [data-close-modal]-байндинг из index.js её не покрывает.
+    const rrmClose = e.target.closest?.('#rrm-actions [data-close-modal]');
+    if (rrmClose) { closeModal(rrmClose.dataset.closeModal); return; }
   });
 
   // Карточка заявки кликабельна целиком (role="button") — поддержим

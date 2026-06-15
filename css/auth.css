@@ -45,6 +45,11 @@
   color: #fff; font-size: 1rem;
 }
 .auth-brand-name { font-weight: 700; font-size: var(--text-base); color: var(--clr-text-primary); }
+
+/* Логотип внутри auth-карточки, по центру сверху (на белой карточке
+   навы-вордмарк читается без подложки). */
+.auth-card-logo { display: flex; justify-content: center; margin-bottom: 1.5rem; text-decoration: none; }
+.auth-card-logo img { height: 2.5rem; width: auto; display: block; }
 .auth-container {
   flex: 1;
   display: flex;

@@ -395,8 +395,8 @@ function hideAlert(id) {
   // чекбокс активируется ТОЛЬКО кнопкой «Согласиться» в модалке.
   // ─────────────────────────────────────────────────────────────
   const CONSENT_DOCS = {
-    pdn:     { title: 'auth.register.consent.pdn_title',     body: 'auth.register.consent.pdn_body' },
-    privacy: { title: 'auth.register.consent.privacy_title', body: 'auth.register.consent.privacy_body' },
+    pdn:     { title: 'auth.register.consent.pdn_title',     body: 'auth.register.consent.pdn_body',     icon: 'ph-file-text' },
+    privacy: { title: 'auth.register.consent.privacy_title', body: 'auth.register.consent.privacy_body', icon: 'ph-shield-check' },
   };
   let _consentDoc = null;
   function openConsent(doc) {
@@ -405,8 +405,10 @@ function hideAlert(id) {
     _consentDoc = doc;
     const title = q('#consent-modal-title');
     const body  = q('#consent-modal-body');
+    const icon  = q('#consent-modal-icon');
     if (title) title.textContent = t(d.title);
     if (body)  body.textContent  = t(d.body);
+    if (icon)  icon.className = 'ph-bold ' + d.icon;
     q('#consent-modal')?.classList.add('open');
   }
   function closeConsent() { q('#consent-modal')?.classList.remove('open'); }
@@ -428,6 +430,15 @@ function hideAlert(id) {
   q('#consent-modal-agree')?.addEventListener('click', () => {
     if (_consentDoc) setConsent(_consentDoc, true);
     closeConsent();
+  });
+  q('#consent-modal-download')?.addEventListener('click', () => {
+    const d = CONSENT_DOCS[_consentDoc]; if (!d) return;
+    const blob = new Blob([t(d.body)], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `REMS-desk — ${t(d.title)}.txt`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
   });
   q('#consent-modal-close')?.addEventListener('click', closeConsent);
   q('#consent-modal-close2')?.addEventListener('click', closeConsent);

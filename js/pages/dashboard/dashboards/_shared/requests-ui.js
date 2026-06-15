@@ -97,12 +97,21 @@ export function requestListHTML(list) {
 /* ── История (timeline) — единственная «дорожная карта» модалки:
    цепочка событий с иконками статусов, ролью актора в строке
    заголовка, комментариями и вложениями каждого перехода. ─────────── */
-export function historyHTML(history) {
+export function historyHTML(history, names = {}) {
   if (!history || !history.length) {
     return `<div class="empty-state empty-state--inline"><i class="ph ph-clock-counter-clockwise"></i><span class="empty-state-text">${escapeHTML(t('requests.history_empty'))}</span></div>`;
   }
+  // Сторона события выводится из нового статуса (детерминированно), а не из
+  // status_history.changed_by — у части старых заявок оно проставлено
+  // неверно (везде «заказчик»). Исполнительские переходы — assigned/
+  // in_progress/done, остальные (new/closed/cancelled) — на стороне заказчика.
+  const CONTRACTOR_STATUSES = ['assigned', 'in_progress', 'done'];
   return history.map(h => {
-    const sideLbl = t('requests.side_' + h.changed_by);
+    const side = CONTRACTOR_STATUSES.includes(h.new_status) ? 'contractor' : 'customer';
+    const sideName = side === 'contractor' ? names.assignee : names.author;
+    // В чипе — только ФИО (цвет чипа кодирует сторону: оранжевый=заказчик,
+    // розовый=исполнитель). Если имени нет — фолбэк на роль.
+    const sideLbl = sideName || t('requests.side_' + side);
     const att = (h.attachments || []).map(a => attachmentHTML(a)).join('');
     // Информативный заголовок события вместо «Статус: X». Для создания —
     // «Заявка создана»; для переходов — действие (requests.events.<status>),
@@ -125,7 +134,7 @@ export function historyHTML(history) {
         <div class="rrm-event-body">
           <div class="rrm-event-head">
             <span class="rrm-event-title">${escapeHTML(title)}</span>
-            <span class="rrm-side-chip rrm-side-${h.changed_by}">${escapeHTML(sideLbl)}</span>
+            <span class="rrm-side-chip rrm-side-${side}">${escapeHTML(sideLbl)}</span>
             <span class="rrm-event-time">${escapeHTML(fmtDateTime(h.changed_at))}</span>
           </div>
           ${detail}

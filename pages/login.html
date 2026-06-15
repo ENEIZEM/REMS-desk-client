@@ -3,7 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Вход — REMS</title>
+  <title>Вход — REMS-desk</title>
+
+  <!-- Favicons / PWA / brand -->
+  <link rel="icon" href="/assets/favicon.ico" sizes="any">
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+  <link rel="manifest" href="/assets/site.webmanifest">
+  <meta name="theme-color" content="#2a3c55">
   <!-- Self-hosted assets — see /fonts and /vendor at the project root. -->
   <link rel="stylesheet" href="../fonts/onest.css">
   <link rel="stylesheet" href="../vendor/phosphor/regular.css">
@@ -45,6 +54,7 @@
 
   <!-- STEP: PASSWORD LOGIN -->
   <div class="auth-card" id="step-password">
+    <a href="/" class="auth-card-logo" aria-label="REMS-desk"><img src="/assets/logo.svg" alt="REMS-desk"></a>
     <div class="auth-card-header">
       <div class="auth-card-icon"><i class="ph ph-lock-key"></i></div>
       <div class="auth-card-header-text">
@@ -131,6 +141,7 @@
 
   <!-- STEP: FORGOT PASSWORD — 3-step wizard в стиле change-password modal -->
   <div class="auth-card hidden" id="step-forgot">
+    <a href="/" class="auth-card-logo" aria-label="REMS-desk"><img src="/assets/logo.svg" alt="REMS-desk"></a>
     <div class="auth-card-header">
       <div class="auth-card-icon"><i class="ph ph-key"></i></div>
       <div class="auth-card-header-text">
@@ -297,6 +308,7 @@
 
   <!-- STEP: PIN LOGIN -->
   <div class="auth-card hidden" id="step-pin">
+    <a href="/" class="auth-card-logo" aria-label="REMS-desk"><img src="/assets/logo.svg" alt="REMS-desk"></a>
     <div class="auth-card-header">
       <div class="auth-card-icon"><i class="ph ph-keyhole"></i></div>
       <div class="auth-card-header-text">

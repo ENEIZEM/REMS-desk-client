@@ -131,6 +131,8 @@ export const auth = {
     target:  contact,
     type:    detectContactType(contact),
     purpose,
+    // Язык интерфейса → backend выбирает язык письма с кодом.
+    language: localStorage.getItem('rems_lang') || 'ru',
     ...(organizationId != null && { organization_id: organizationId }),
     // resend=true — только с явной кнопки «Отправить повторно». Без него
     // backend реюзает живой код (навигация «назад → далее» его не убивает).
@@ -212,7 +214,7 @@ export const profile = {
   detachContact: (payload) => request('POST', '/profile/detach-contact', payload),
 
   /** payload: { target, type: 'email'|'phone', purpose: 'change_password'|'change_email'|'change_phone' } */
-  sendCode: (payload) => request('POST', '/profile/send-code', payload),
+  sendCode: (payload) => request('POST', '/profile/send-code', { language: localStorage.getItem('rems_lang') || 'ru', ...payload }),
 
   /** Confirm a temp upload as the user's avatar. mediaFileId from POST /api/upload/temp response. */
   confirmAvatar: (mediaFileId) => request('POST', '/profile/avatar/confirm', { media_file_id: mediaFileId }),
@@ -277,6 +279,7 @@ export const members = {
       employee — the invite endpoint no longer accepts a role param. */
   invite: (contact, message) => request('POST', '/orgs/members/invite', {
     contact,
+    language: localStorage.getItem('rems_lang') || 'ru',
     ...(message ? { message } : {}),
   }),
 

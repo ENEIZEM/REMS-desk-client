@@ -28,6 +28,23 @@
   from { opacity: 0; transform: scale(0.97) translateY(8px); }
   to   { opacity: 1; transform: scale(1) translateY(0); }
 }
+/* Документ-модалки (согласия / правовые документы) — фиксированная высота;
+   скроллится ТОЛЬКО блок текста внутри, сама модалка — нет. Так скролл-бар
+   не наезжает на скруглённые углы (раньше прокрутка всей .modal делала
+   правые углы «квадратными»). */
+#consent-modal .modal,
+#legal-modal .modal {
+  display: flex;
+  flex-direction: column;
+  height: min(85vh, 680px);
+  overflow: hidden;
+}
+#consent-modal .modal-body,
+#legal-modal .modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
 /* Header — visually matches an auth-card opening: a square icon-tile
    on the LEFT, vertically centered against the title+subtitle stack,
    plus a small × close in the corner. The bottom-border that used to

@@ -104,6 +104,8 @@ body[data-sidebar] > .navbar {
 }
 .navbar-title    { font-size: var(--text-sm); font-weight: 700; color: var(--clr-text-primary); line-height: 1.2; }
 .navbar-subtitle { font-size: var(--text-xs); color: var(--clr-text-muted); font-weight: 400; }
+/* SVG-логотип в шапке (заменяет иконку + текст). */
+.navbar-logo-img { height: 2.4rem; width: auto; display: block; }
 .navbar-spacer   { flex: 1; }
 .navbar-actions  { display: flex; align-items: center; gap: var(--space-2); }
 
@@ -142,6 +144,11 @@ body[data-sidebar] > .navbar {
    статический набор вкладок. visibility (не display) сохраняет раскладку,
    чтобы пункты не «прыгали» при появлении. Класс ставится в loadProfile. */
 body:not(.rems-nav-ready) .sidebar nav { visibility: hidden; }
+
+/* Бренд-логотип внизу сайдбара (sidebar — flex-column, поэтому
+   margin-top:auto прижимает футер к низу). */
+.sidebar-footer { margin-top: auto; padding-top: var(--space-4); display: flex; justify-content: center; }
+.sidebar-footer img { height: 1.9rem; width: auto; max-width: 100%; opacity: 0.9; }
 
 .sidebar {
   position: absolute;

@@ -903,13 +903,16 @@ body[data-role="solo"]     [data-role-only="employee"] {
   font-weight: 700; font-size: var(--text-sm); color: var(--clr-text-primary);
   font-variant-numeric: tabular-nums; letter-spacing: 0.01em;
 }
+/* Чип типа заявки — единое оформление для внутренней и по-контракту.
+   Активные заявки: навы-акцент; завершённые/отменённые — приглушённый
+   (правило .request-card--terminal ниже). Иконка (buildings/handshake) и
+   подпись различают тип; цвет/обводка одинаковые. */
 .request-type-chip {
   display: inline-flex; align-items: center; gap: 0.28rem;
-  font-size: 0.68rem; font-weight: 600; color: var(--clr-text-muted);
-  border: 1px solid var(--clr-border); border-radius: 999px;
+  font-size: 0.68rem; font-weight: 600; color: var(--clr-navy);
+  border: 1px solid color-mix(in srgb, var(--clr-navy) 35%, transparent); border-radius: 999px;
   padding: 0.12rem 0.55rem; white-space: nowrap;
 }
-.request-type-chip--contract { color: var(--clr-navy); border-color: color-mix(in srgb, var(--clr-navy) 35%, transparent); }
 .request-card-head-right { display: inline-flex; gap: 0.4rem; align-items: center; flex-shrink: 0; }
 /* Чипы статуса + приоритета (SLA) — фиксированный одинаковый слот, чтобы
    у всех заявок они занимали одно место независимо от текста/языка
@@ -920,6 +923,11 @@ body[data-role="solo"]     [data-role-only="employee"] {
 /* Чипы в заголовке дорожной карты (после номера заявки) — естественная
    ширина, перенос на новую строку при нехватке места. */
 .rrm-sub-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.4rem; }
+/* Чипы статуса+SLA справа от заголовка/подзаголовка дорожной карты. */
+.rrm-head-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; justify-content: flex-end; margin-left: auto; }
+/* Подзаголовок = стороны заявки (иконка + текст + стрелка). */
+#rrm-sub { display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; }
+#rrm-sub .rq-parties-arrow { color: var(--clr-text-secondary); opacity: 0.95; }
 .request-card-desc {
   font-size: var(--text-sm); color: var(--clr-text-primary); margin-top: 0.5rem;
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; word-break: break-word;
@@ -933,7 +941,7 @@ body[data-role="solo"]     [data-role-only="employee"] {
   font-size: var(--text-xs); color: var(--clr-text-secondary);
 }
 .request-card-meta .contract-muted { display: inline-flex; align-items: center; gap: 0.22rem; }
-.rq-parties-arrow { font-size: 0.7em; opacity: 0.6; }
+.rq-parties-arrow { font-size: 0.9em; opacity: 0.85; }
 .rq-free-tag { color: var(--clr-accent); font-weight: 600; }
 .request-card-open {
   display: inline-flex; align-items: center; gap: 0.25rem; flex-shrink: 0;
@@ -953,6 +961,9 @@ body[data-role="solo"]     [data-role-only="employee"] {
 .request-card--terminal .request-card-number { color: var(--clr-text-muted); }
 .request-card--terminal .request-card-status-ico,
 .request-card--terminal .request-card-att { opacity: 0.7; }
+/* Завершённые/отменённые: тип-чип приглушаем (одинаково для внутренней и
+   по-контракту), чтобы контрактный не «выпирал» навы-цветом. */
+.request-card--terminal .request-type-chip { color: var(--clr-text-muted); border-color: var(--clr-border); }
 .request-card--terminal:hover { transform: none; box-shadow: 0 3px 10px rgba(15, 23, 42, 0.06); }
 
 /* Рельса-степпер удалена: история (timeline ниже) — единственная
@@ -1040,12 +1051,14 @@ body[data-role="solo"]     [data-role-only="employee"] {
 .rrm-event-title { font-weight: 600; font-size: var(--text-sm); }
 .rrm-event-time { font-size: var(--text-xs); color: var(--clr-text-muted); white-space: nowrap; font-variant-numeric: tabular-nums; margin-left: auto; }
 .rrm-side-chip {
-  display: inline-block; flex-shrink: 0;
-  font-size: 0.64rem; font-weight: 700; letter-spacing: 0.03em;
-  border-radius: 999px; padding: 0.08rem 0.5rem;
+  display: inline-block; flex-shrink: 0; vertical-align: middle;
+  max-width: 14rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 0.64rem; font-weight: 700; letter-spacing: 0.03em; line-height: 1.5;
+  border-radius: 999px; padding: 0.12rem 0.55rem;
 }
-.rrm-side-customer   { background: #dbeafe; color: #1d4ed8; }
-.rrm-side-contractor { background: #ccfbf1; color: #0f766e; }
+/* Стороны — цвета как у контрактов: заказчик = оранжевый, исполнитель = розовый. */
+.rrm-side-customer   { background: #ffedd5; color: #c2410c; }
+.rrm-side-contractor { background: #fce7f3; color: #be185d; }
 /* Сообщение + вложения события — единый контейнер (одна подложка). */
 .rrm-event-detail {
   margin-top: 0.4rem;
@@ -1076,9 +1089,10 @@ body[data-role="solo"]     [data-role-only="employee"] {
   .request-card-open { align-self: flex-end; }
 }
 
-.request-rating { display: flex; gap: 0.35rem; font-size: 1.9rem; color: var(--clr-border); cursor: pointer; }
+.request-rating { display: flex; justify-content: space-between; align-items: center; font-size: 2.75rem; color: var(--clr-border); cursor: pointer; padding: 0.25rem 0.25rem 0.5rem; }
+.request-rating i { transition: color var(--trans-fast), transform var(--trans-fast); }
 .request-rating .ph-fill, .request-rating .is-on { color: #f59e0b; }
-.request-rating i:hover { color: #f59e0b; }
+.request-rating i:hover { color: #f59e0b; transform: scale(1.1); }
 
 .request-attach-tile {
   border: 1px dashed var(--clr-border); border-radius: var(--radius-md);
