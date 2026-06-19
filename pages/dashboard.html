@@ -196,7 +196,7 @@
   <aside class="sidebar" id="sidebar">
     <nav>
       <div class="nav-section">
-        <p class="nav-section-label" data-i18n="app.name">REMS-desk</p>
+        <!-- Бренд-надпись сверху убрана по дизайну. -->
         <!-- Solo: «Главная». Owner/Employee: «Обзор». Подменяется JS-ом
              в solo dashboard'е (см. dashboards/solo/index.js). -->
         <button class="nav-item active" data-tab="overview">
@@ -255,10 +255,11 @@
         </button>
       </div>
     </nav>
-    <!-- Бренд-марка внизу сайдбара. -->
-    <a href="/" class="sidebar-footer" aria-label="REMS-desk">
-      <img src="/assets/logo.svg" alt="REMS-desk">
-    </a>
+    <!-- Подвал сайдбара: копирайт + почта поддержки. -->
+    <div class="sidebar-footer">
+      <span class="sidebar-footer-copy">© REMS-desk 2026</span>
+      <a class="sidebar-footer-mail" href="mailto:support@rems-desk.ru">support@rems-desk.ru</a>
+    </div>
   </aside>
 
   <!-- ── Main content ─────────────────────────────────────────── -->
@@ -450,53 +451,49 @@
             </div>
           </div>
 
-          <!-- Internal SLA — 4 rows; hint lives in the header tooltip (no
-               extra row inside the body) so heights line up with the right column. -->
+          <!-- Внутренний SLA — матрица: строки = приоритеты, столбцы =
+               Реакция (взять) / Устранение. Одна карточка вместо двух
+               разновысоких; редактируется владельцем (карандаши). -->
           <div class="card profile-card">
             <div class="profile-card-header">
               <div class="profile-card-icon navy"><i class="ph-bold ph-clock-countdown"></i></div>
-              <h3 class="profile-card-title" data-i18n="profile.internal_sla">Внутренние SLA</h3>
-              <span class="profile-card-tooltip" tabindex="0" data-tooltip-key="profile.internal_sla_hint">
+              <h3 class="profile-card-title" data-i18n="profile.internal_sla_matrix">Внутренний SLA</h3>
+              <span class="profile-card-tooltip" tabindex="0" data-tooltip-key="profile.internal_sla_matrix_hint">
                 <i class="ph ph-info"></i>
               </span>
             </div>
             <div class="profile-card-body">
-              <div class="profile-row sla-row-wide">
-                <span class="profile-row-label">
-                  <span class="sla-pri sla-critical" data-i18n="profile.sla_critical">Критический</span>
-                </span>
-                <span class="profile-row-edit-wrap">
-                  <span class="sla-val" id="sla-crit">—</span>
-                  <button class="profile-row-edit-btn" data-edit-field="internal_sla_critical_h" aria-label="edit"><i class="ph-duotone ph-pencil-simple"></i></button>
-                </span>
-              </div>
-              <div class="profile-row sla-row-wide">
-                <span class="profile-row-label">
-                  <span class="sla-pri sla-high" data-i18n="profile.sla_high">Высокий</span>
-                </span>
-                <span class="profile-row-edit-wrap">
-                  <span class="sla-val" id="sla-high">—</span>
-                  <button class="profile-row-edit-btn" data-edit-field="internal_sla_high_h" aria-label="edit"><i class="ph-duotone ph-pencil-simple"></i></button>
-                </span>
-              </div>
-              <div class="profile-row sla-row-wide">
-                <span class="profile-row-label">
-                  <span class="sla-pri sla-medium" data-i18n="profile.sla_medium">Средний</span>
-                </span>
-                <span class="profile-row-edit-wrap">
-                  <span class="sla-val" id="sla-med">—</span>
-                  <button class="profile-row-edit-btn" data-edit-field="internal_sla_medium_h" aria-label="edit"><i class="ph-duotone ph-pencil-simple"></i></button>
-                </span>
-              </div>
-              <div class="profile-row sla-row-wide" style="border-bottom:none;">
-                <span class="profile-row-label">
-                  <span class="sla-pri sla-low" data-i18n="profile.sla_low">Низкий</span>
-                </span>
-                <span class="profile-row-edit-wrap">
-                  <span class="sla-val" id="sla-low">—</span>
-                  <button class="profile-row-edit-btn" data-edit-field="internal_sla_low_h" aria-label="edit"><i class="ph-duotone ph-pencil-simple"></i></button>
-                </span>
-              </div>
+              <table class="sla-matrix">
+                <thead>
+                  <tr>
+                    <th data-i18n="profile.sla_col_priority">Приоритет</th>
+                    <th data-i18n="profile.sla_col_response">Реакция</th>
+                    <th data-i18n="profile.sla_col_resolution">Устранение</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><span class="sla-pri sla-critical" data-i18n="profile.sla_critical">Критический</span></td>
+                    <td><span class="profile-row-edit-wrap"><span class="sla-val" id="sla-resp-crit">—</span><button class="profile-row-edit-btn" data-edit-field="internal_response_sla_critical_h" aria-label="edit"><i class="ph-duotone ph-pencil-simple"></i></button></span></td>
+                    <td><span class="profile-row-edit-wrap"><span class="sla-val" id="sla-crit">—</span><button class="profile-row-edit-btn" data-edit-field="internal_sla_critical_h" aria-label="edit"><i class="ph-duotone ph-pencil-simple"></i></button></span></td>
+                  </tr>
+                  <tr>
+                    <td><span class="sla-pri sla-high" data-i18n="profile.sla_high">Высокий</span></td>
+                    <td><span class="profile-row-edit-wrap"><span class="sla-val" id="sla-resp-high">—</span><button class="profile-row-edit-btn" data-edit-field="internal_response_sla_high_h" aria-label="edit"><i class="ph-duotone ph-pencil-simple"></i></button></span></td>
+                    <td><span class="profile-row-edit-wrap"><span class="sla-val" id="sla-high">—</span><button class="profile-row-edit-btn" data-edit-field="internal_sla_high_h" aria-label="edit"><i class="ph-duotone ph-pencil-simple"></i></button></span></td>
+                  </tr>
+                  <tr>
+                    <td><span class="sla-pri sla-medium" data-i18n="profile.sla_medium">Средний</span></td>
+                    <td><span class="profile-row-edit-wrap"><span class="sla-val" id="sla-resp-med">—</span><button class="profile-row-edit-btn" data-edit-field="internal_response_sla_medium_h" aria-label="edit"><i class="ph-duotone ph-pencil-simple"></i></button></span></td>
+                    <td><span class="profile-row-edit-wrap"><span class="sla-val" id="sla-med">—</span><button class="profile-row-edit-btn" data-edit-field="internal_sla_medium_h" aria-label="edit"><i class="ph-duotone ph-pencil-simple"></i></button></span></td>
+                  </tr>
+                  <tr>
+                    <td><span class="sla-pri sla-low" data-i18n="profile.sla_low">Низкий</span></td>
+                    <td><span class="profile-row-edit-wrap"><span class="sla-val" id="sla-resp-low">—</span><button class="profile-row-edit-btn" data-edit-field="internal_response_sla_low_h" aria-label="edit"><i class="ph-duotone ph-pencil-simple"></i></button></span></td>
+                    <td><span class="profile-row-edit-wrap"><span class="sla-val" id="sla-low">—</span><button class="profile-row-edit-btn" data-edit-field="internal_sla_low_h" aria-label="edit"><i class="ph-duotone ph-pencil-simple"></i></button></span></td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
 
@@ -516,16 +513,14 @@
             </div>
             <div class="profile-card-body">
               <div class="profile-row">
-                <span class="profile-row-label-stack">
-                  <span class="profile-row-label">
-                    <span data-i18n="profile.plan">Тариф</span>:
-                    <span id="sub-plan-line" style="font-weight:700; color:var(--clr-accent); margin-left:.35rem;">Free</span>
-                  </span>
+                <span class="profile-row-label" data-i18n="profile.plan">Тариф</span>
+                <span class="profile-row-edit-wrap">
+                  <span class="profile-row-value plan-pill" id="sub-plan-line">Free</span>
+                  <button class="btn btn-upgrade-gold" id="btn-upgrade-sub" data-tooltip-key="profile.upgrade_coming_soon">
+                    <i class="ph-bold ph-crown-simple"></i>
+                    <span data-i18n="profile.upgrade">Улучшить</span>
+                  </button>
                 </span>
-                <button class="btn btn-upgrade-gold" id="btn-upgrade-sub" data-tooltip-key="profile.upgrade_coming_soon">
-                  <i class="ph-bold ph-crown-simple"></i>
-                  <span data-i18n="profile.upgrade">Улучшить</span>
-                </button>
               </div>
               <div class="profile-row">
                 <span class="profile-row-label" data-i18n="profile.max_employees">Сотрудников</span>

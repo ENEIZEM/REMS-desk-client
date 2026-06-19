@@ -41,6 +41,7 @@ import { fmtDate, setAvatar, initials, roleLabel } from './format.js';
 import { renderProfileTab }     from './tabs/profile.js';
 import { populateOrgTab }       from './tabs/organization.js';
 import { attachLoader }         from '../../lib/lazy-loader.js';
+import { phoneChannelEnabled, loadFeatures }  from '../../config.js';
 import '../../lib/char-counter.js';   // авто-счётчики символов в модалках
 import { hidePageLoader }       from '../../lib/page-loader.js';
 import { consumePinPass }       from '../../lib/pin-gate.js';
@@ -61,6 +62,9 @@ hidePageLoader();
 
 // ── Init ──────────────────────────────────────────────────────────
 await initI18n();
+// Подтягиваем feature-флаги (telephone-канал и пр.) до построения UI,
+// который от них зависит (кнопка телефона, инвайт). Безопасный дефолт.
+await loadFeatures();
 if (!requireAuth()) throw new Error('not logged in');
 
 // ── PIN gate ──────────────────────────────────────────────────────
@@ -164,6 +168,13 @@ function applyHashTab() {
       return;
     }
     switchTab(tab, { updateHash: false });
+    // #overview/<id> | #requests/<id> (клик по уведомлению о заявке) →
+    // подсветить целевую карточку. Лента у owner на «Обзоре», у employee
+    // на «Заявках» — поддерживаем оба базовых таба.
+    if (tab === 'requests' || tab === 'overview') {
+      const m = (location.hash || '').match(/#(?:overview|requests)\/(\d+)/);
+      if (m) document.dispatchEvent(new CustomEvent('rems:focus-request', { detail: { id: Number(m[1]) } }));
+    }
     return;
   }
   // Нет хэша — дефолтный для роли.
@@ -546,7 +557,13 @@ q('#btn-link-telegram')?.addEventListener('click', (e) => {
 });
 // Email / Phone change/link buttons → open the 3-step contact-change wizard.
 q('#btn-edit-email')?.addEventListener('click', () => openChangeContact('email'));
-q('#btn-edit-phone')?.addEventListener('click', () => openChangeContact('phone'));
+// Телефон оставлен в ЛК (значение видно), но привязка/смена по SMS пока
+// недоступна — пока нет SMS-провайдера показываем тост (как у Telegram),
+// не открывая мастер. Флоу change-contact и бэкенд не трогаем.
+q('#btn-edit-phone')?.addEventListener('click', () => {
+  if (!phoneChannelEnabled()) { toast(t('profile.phone_sms_soon'), 'info'); return; }
+  openChangeContact('phone');
+});
 
 wireChangeContact({
   getUserProfile:       () => _userProfile,

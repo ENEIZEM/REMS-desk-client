@@ -12,7 +12,6 @@
    ═══════════════════════════════════════════════════════════════ */
 
 import { hide, show } from '../_shared/role-helpers.js';
-import { mountEmployeeOverview }  from './overview.js';
 import { mountEmployeeRequests }  from './requests.js';
 import { mountEmployeeContracts } from './contracts.js';
 import { mountEmployeeTeam }      from './team.js';
@@ -37,11 +36,16 @@ export function bootEmployeeDashboard(profile) {
   hide('[data-role-only="owner"]');
   hide('[data-role-only="solo"]');
 
-  // Сотрудник: «Моя организация» вкладка удалена — всё перенесено
-  // в Обзор + Заявки. Прячем sidebar-link и сам tab-panel.
-  hide('#nav-item-org');
-  hide('.nav-item[data-tab="org"]');
-  hide('#tab-org');
+  // Сотрудник: вкладка «Организация» доступна READ-ONLY — здесь живут
+  // справочные SLA-матрица + лимиты + орг-шапка (членство). Все edit-
+  // контролы (карандаши, лого, имя, апгрейд) скрыты по permissions
+  // (can_edit_* = false из /profile/me → populateOrgTab их прячет).
+  show('#nav-item-org');
+
+  // Вкладка «Заявки» убрана: рабочий стол (плитки + лента | уведомления)
+  // живёт на «Обзоре» (единый воркспейс, без дубля ленты).
+  hide('.nav-item[data-tab="requests"]');
+  hide('#tab-requests');
 
   // Members tab → «Коллеги» (объединённая с техникой — см. H4).
   // Скрываем owner-only управление (invite/delete).
@@ -84,8 +88,9 @@ export function bootEmployeeDashboard(profile) {
   // Каждый mount — независимый try/catch. Ошибка в одном не блокирует
   // остальные. Самая критичная — overview (стартовая вкладка); если она
   // падает, switchTab('overview') показывает пустую панель.
-  safeRun('overview',  () => mountEmployeeOverview(profile));
-  safeRun('requests',  () => mountEmployeeRequests(profile));
+  // «Обзор» = единый рабочий стол заявок (mountEmployeeRequests рендерит
+  // в #employee-overview-slot). Отдельной вкладки «Заявки» больше нет.
+  safeRun('overview',  () => mountEmployeeRequests(profile));
   safeRun('contracts', () => mountEmployeeContracts(profile));
   // Team-вкладка (объединение коллеги + техника) — отрисует второй
   // блок в #tab-members. Делается ПОСЛЕ basic-mounts.

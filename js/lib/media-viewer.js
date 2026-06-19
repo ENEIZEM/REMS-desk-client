@@ -26,6 +26,13 @@ function ensure() {
       <div class="modal-body equipment-photo-view">
         <img id="${ID}-img" src="" alt="" style="display:none;">
         <iframe id="${ID}-pdf" title="pdf" style="display:none; width:100%; height:70vh; border:0;"></iframe>
+        <div id="${ID}-doc" class="media-viewer-doc" style="display:none;">
+          <i class="ph-duotone ph-file-text media-viewer-doc-ico"></i>
+          <div class="media-viewer-doc-name" id="${ID}-doc-name"></div>
+          <button class="btn btn-secondary" type="button" id="${ID}-doc-open">
+            <i class="ph ph-arrow-square-out"></i> <span data-i18n="common.open_new_tab">Открыть в новой вкладке</span>
+          </button>
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-primary" type="button" id="${ID}-download"><i class="ph ph-download-simple"></i> <span data-i18n="common.download">Скачать</span></button>
@@ -53,6 +60,11 @@ function wire() {
     a.href = _downloadUrl; a.download = _fileName;
     document.body.appendChild(a); a.click(); a.remove();
   });
+  // «Открыть в новой вкладке» — по явному клику пользователя (не авто),
+  // чтобы не было сюрприз-диалога сохранения при открытии вложения.
+  document.getElementById(`${ID}-doc-open`)?.addEventListener('click', () => {
+    if (_downloadUrl) window.open(_downloadUrl, '_blank', 'noopener');
+  });
 }
 
 /**
@@ -65,18 +77,30 @@ export async function openMediaViewer(mediaFileId, opts = {}) {
   _fileName = opts.name || `attachment-${mediaFileId}`;
   const img = document.getElementById(`${ID}-img`);
   const pdf = document.getElementById(`${ID}-pdf`);
+  const doc = document.getElementById(`${ID}-doc`);
   if (img) { img.style.display = 'none'; img.src = ''; }
   if (pdf) { pdf.style.display = 'none'; pdf.src = ''; }
+  if (doc) { doc.style.display = 'none'; }
   document.getElementById(ID)?.classList.add('open');
   try {
     const { blob, url } = await media.loadPrivateBlob(mediaFileId);
     if (_blobUrl) { try { URL.revokeObjectURL(_blobUrl); } catch {} }
     _blobUrl = url;
     _downloadUrl = url;
-    if (blob.type === 'application/pdf') {
-      if (pdf) { pdf.src = url; pdf.style.display = ''; }
-    } else if (img) {
+    const type = blob.type || '';
+    if (type.startsWith('image/') && img) {
       img.src = url; img.style.display = '';
+    } else if (type.includes('pdf') && pdf) {
+      // PDF — инлайн в iframe. (includes, а не строгое равенство: mime может
+      // прийти как 'application/pdf; charset=…' или с вариациями.)
+      pdf.src = url; pdf.style.display = '';
+    } else if (doc) {
+      // Прочие типы (docx/xlsx/неизвестный mime) НЕ суём в iframe — иначе
+      // браузер скачивает их и модалка пустая. Показываем понятную панель
+      // документа: имя + «Открыть в новой вкладке» (+ кнопка «Скачать»).
+      const nameEl = document.getElementById(`${ID}-doc-name`);
+      if (nameEl) nameEl.textContent = _fileName;
+      doc.style.display = '';
     }
   } catch (err) {
     toast(errorMessage(err), 'error');

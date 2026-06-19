@@ -14,38 +14,12 @@ import { members as membersApi } from '../../../../api.js';
 import { setNotificationsTarget, loadNotifications } from '../../notifications.js';
 import {
   mountRequests, renderAll as renderRequests,
-  registerListFilter, getRequests, onRequestsUpdated, periodStart,
+  registerListFilter, setRequestTeam, periodStart,
 } from '../_shared/requests.js';
-
-/* Орг-статистика владельца из загруженной ленты заявок. Раньше читала
-   user.stats, которого backend никогда не отдавал — всегда нули. */
-function computeOwnerStats(list, myOrgId, period) {
-  const from = periodStart(period);
-  const inP  = (iso) => !from || (iso && new Date(iso) >= from);
-  const weContract = (r) => Number(r.contractor_org_id) === Number(myOrgId);
-  const weClient   = (r) => Number(r.client_org_id) === Number(myOrgId);
-
-  const closed       = list.filter(r => r.status === 'closed' && weContract(r) && inP(r.closed_at));
-  const ratedInt     = closed.filter(r => r.rating != null && r.is_internal);
-  const ratedPartner = closed.filter(r => r.rating != null && !r.is_internal);
-  const avg = (arr) => arr.length ? arr.reduce((s, r) => s + Number(r.rating), 0) / arr.length : null;
-  return {
-    requests_in_work:       list.filter(r => weContract(r) && ['assigned', 'in_progress'].includes(r.status)).length,
-    pool_free:              list.filter(r => r.status === 'new' && weContract(r)).length,
-    requests_closed_period: closed.length,
-    requests_opened_period: list.filter(r => weClient(r) && inP(r.created_at)).length,
-    requests_handled:       ratedInt.length,
-    rating_avg:             avg(ratedInt),
-    partner_handled:        ratedPartner.length,
-    rating_avg_partner:     avg(ratedPartner),
-  };
-}
 
 export function mountOwnerOverview(profile) {
   const slot = document.querySelector('#owner-overview-slot');
   if (!slot) return;
-
-  const user  = profile?.user || {};
 
   const PERIODS = [
     { id: 'week',  labelKey: 'period.week'  },
@@ -53,96 +27,56 @@ export function mountOwnerOverview(profile) {
     { id: 'year',  labelKey: 'period.year'  },
     { id: 'all',   labelKey: 'period.all'   },
   ];
-  const SCOPE_FILTERS = [
-    { id: 'all',      labelKey: 'employee.req_scope_all'      },
-    { id: 'internal', labelKey: 'employee.req_scope_internal' },
-    { id: 'partner',  labelKey: 'employee.req_scope_partner'  },
-  ];
-  // Owner-specific type labels — относятся к ВЫБРАННОМУ в 4-м фильтре
-  // сотруднику: «созданные сотрудником / закрытые сотрудником / все
-  // сотрудника». Когда выбрано «Все сотрудники» — это «всех».
-  const TYPE_FILTERS = [
-    { id: 'all_emp', labelKey: 'owner.req_type_all_emp'   },
-    { id: 'created', labelKey: 'owner.req_type_created'   },
-    { id: 'closed',  labelKey: 'owner.req_type_closed'    },
-    { id: 'free',    labelKey: 'employee.req_type_free'   },
-  ];
-
   const scopeKey  = 'rems_owner_overview_scope';
-  const typeKey   = 'rems_owner_overview_type';
   const periodKey = 'rems_owner_overview_period';
-  const empKey    = 'rems_owner_overview_employee';
-  let activeScope    = localStorage.getItem(scopeKey)    || 'all';
-  let activeType     = localStorage.getItem(typeKey)     || 'all_emp';
-  let activePeriod   = localStorage.getItem(periodKey)   || 'month';
-  let activeEmployee = localStorage.getItem(empKey)      || 'all';
+  let activeScope  = localStorage.getItem(scopeKey)  || 'all';
+  let activePeriod = localStorage.getItem(periodKey) || 'month';
 
-  const myOrgId = Number(profile?.organization?.id);
-
-  // Реальный фильтр ленты (scope × type × period × сотрудник). Раньше
-  // pickers писали только в localStorage и ничего не перерисовывали —
-  // лента всегда показывала «все».
+  // Пре-фильтр ленты: ТОЛЬКО период (к архиву). Охват («тип заявки»)
+  // теперь живёт в под-фильтрах — renderAll читает feed.dataset.rqScope
+  // и сам отрисовывает сегмент в [data-rq-scope]. Ось «чьё/стадия» —
+  // плитки (segmentedHTML), линза «сотрудник» — панель «Команда» (renderAll
+  // через data-rq-team-emp). Здесь по охвату/сотруднику НЕ фильтруем.
   registerListFilter('owner-overview', (r) => {
-    if (activeScope === 'internal' && !r.is_internal) return false;
-    if (activeScope === 'partner'  &&  r.is_internal) return false;
-
-    const from = periodStart(activePeriod);
-    if (from) {
-      const anchor = activeType === 'closed' ? (r.closed_at || r.created_at) : r.created_at;
-      if (anchor && new Date(anchor) < from) return false;
+    const terminal = r.status === 'closed' || r.status === 'cancelled';
+    if (terminal) {
+      const from = periodStart(activePeriod);
+      if (from && new Date(r.closed_at || r.created_at) < from) return false;
     }
-
-    const empId = activeEmployee !== 'all' ? Number(activeEmployee) : null;
-    const byEmpAuthor   = empId == null || Number(r.author_id) === empId;
-    const byEmpAssignee = empId == null || Number(r.assigned_to_id) === empId;
-
-    if (activeType === 'created') return byEmpAuthor && Number(r.client_org_id) === myOrgId;
-    if (activeType === 'closed')  return byEmpAssignee && r.status === 'closed' && Number(r.contractor_org_id) === myOrgId;
-    if (activeType === 'free')    return r.status === 'new' && Number(r.contractor_org_id) === myOrgId;
-    // all_emp: при выбранном сотруднике — его заявки (автор или исполнитель).
-    return empId == null || Number(r.author_id) === empId || Number(r.assigned_to_id) === empId;
+    return true;
   });
-
-  // Employee filter — динамический (зависит от членов орги).
-  // Базовый «Все сотрудники» + конкретные имена.
-  let EMPLOYEE_FILTERS = [{ id: 'all', labelKey: 'owner.emp_filter_all' }];
 
   // page-header уже есть в HTML #tab-overview — не дублируем.
   slot.innerHTML = `
-    <div class="card profile-card" style="margin-top:1rem;">
-      <div class="profile-card-header profile-card-header--with-actions">
-        <div class="profile-card-icon navy"><i class="ph-bold ph-clipboard-text"></i></div>
-        <h3 class="profile-card-title" data-i18n="employee.requests_header_overview">Заявки</h3>
-        <div class="notif-header-actions">
-          ${renderTogglePicker(SCOPE_FILTERS,    activeScope,    'data-owner-scope')}
-          ${renderTogglePicker(TYPE_FILTERS,     activeType,     'data-owner-type')}
-          ${renderTogglePicker(PERIODS,          activePeriod,   'data-owner-period')}
-          ${renderTogglePicker(EMPLOYEE_FILTERS, activeEmployee, 'data-owner-emp')}
-          <span class="profile-card-tooltip profile-card-tooltip--end" tabindex="0" data-tooltip-key="owner.overview_requests_hint">
-            <i class="ph ph-info"></i>
-          </span>
-        </div>
+    <!-- Плитки = статистика + первичный фильтр (рендерит renderAll). -->
+    <div class="rq-tiles-row" data-rq-tiles="owner-overview"></div>
+
+    <!-- Под-фильтры над лентой: тип заявки (сегмент с цифрами) │ период
+         (выпадающий список) │ команда. Разделены вертикальными линиями. -->
+    <div class="rq-subfilters">
+      <div class="rq-subfilter-group" data-rq-scope="owner-overview"></div>
+      <div class="rq-subfilter-group rq-subfilter-period">
+        ${renderTogglePicker(PERIODS, activePeriod, 'data-owner-period')}
       </div>
-      <div class="profile-card-body requests-feed-body" id="owner-overview-requests-body"
-           data-requests-list data-rq-filter="owner-overview"></div>
+      <div class="rq-subfilter-group rq-subfilter-team" data-rq-team="owner-overview"></div>
     </div>
 
-    <div class="profile-two-col employee-two-col" style="margin-top:1rem;">
+    <!-- Рабочая зона: лента заявок | уведомления (2-колонка, лента шире). -->
+    <div class="profile-two-col employee-two-col rq-work-cols" style="margin-top:.75rem;">
       <div class="profile-col employee-col-left">
-        <div class="card profile-card employee-stats-card">
+        <div class="card profile-card rq-work-feed">
           <div class="profile-card-header profile-card-header--with-actions">
-            <div class="profile-card-icon teal"><i class="ph-bold ph-chart-bar"></i></div>
-            <h3 class="profile-card-title" data-i18n="employee.stats_title">Статистика</h3>
+            <div class="profile-card-icon navy"><i class="ph-bold ph-clipboard-text"></i></div>
+            <h3 class="profile-card-title" data-i18n="employee.requests_header_overview">Заявки</h3>
             <div class="notif-header-actions">
-              ${renderTogglePicker(PERIODS, activePeriod, 'data-owner-stats-period')}
+              <span class="profile-card-tooltip profile-card-tooltip--end" tabindex="0" data-tooltip-key="owner.overview_requests_hint">
+                <i class="ph ph-info"></i>
+              </span>
             </div>
-            <span class="profile-card-tooltip profile-card-tooltip--end" tabindex="0" data-tooltip-key="employee.stats_hint">
-              <i class="ph ph-info"></i>
-            </span>
           </div>
-          <div class="profile-card-body" id="owner-stats-body">
-            ${renderStatsRows(user, myOrgId, activePeriod)}
-          </div>
+          <div class="profile-card-body requests-feed-body" id="owner-overview-requests-body"
+               data-requests-list data-rq-segmented data-rq-filter="owner-overview"
+               data-rq-scope="${activeScope}"></div>
         </div>
       </div>
 
@@ -158,7 +92,7 @@ export function mountOwnerOverview(profile) {
                         data-i18n="notifications.filter_all">Все</button>
                 <button type="button" class="notif-filter-btn"
                         data-filter="unread" role="tab" aria-selected="false">
-                  <span data-i18n="notifications.filter_unread">Непрочитанные</span>
+                  <span data-i18n="notifications.filter_unread">Новые</span>
                   <span class="notif-filter-count" data-unread-count></span>
                 </button>
               </div>
@@ -183,58 +117,21 @@ export function mountOwnerOverview(profile) {
   setNotificationsTarget('#employee-notifs-slot');
   loadNotifications().catch(err => console.warn('[owner overview notifications]', err));
 
-  // Заявки: лента + дорожная карта (общий модуль). Кнопка «Создать» —
+  // Заявки: лента + плитки + Команда (общий модуль). Кнопка «Создать» —
   // в page-header вкладки Обзор (data-rq-create).
   mountRequests(profile).catch(err => console.warn('[owner overview requests]', err));
 
-  // Pickers — каждый выбор перерисовывает ленту (фильтр зарегистрирован выше).
-  const redrawStats = () => {
-    const body = slot.querySelector('#owner-stats-body');
-    if (body) body.innerHTML = renderStatsRows(user, myOrgId, activePeriod);
-    applyTranslations();
-  };
-  wirePopoverPicker(slot, '[data-owner-scope]',         (id) => { activeScope = id; localStorage.setItem(scopeKey, id); renderRequests(); }, SCOPE_FILTERS);
-  wirePopoverPicker(slot, '[data-owner-type]',          (id) => { activeType = id;  localStorage.setItem(typeKey, id); renderRequests(); }, TYPE_FILTERS);
-  wirePopoverPicker(slot, '[data-owner-period]',        (id) => { activePeriod = id; localStorage.setItem(periodKey, id); renderRequests(); redrawStats(); }, PERIODS);
-  wirePopoverPicker(slot, '[data-owner-stats-period]',  (id) => {
-    activePeriod = id;
-    localStorage.setItem(periodKey, id);
-    renderRequests();
-    redrawStats();
-  }, PERIODS);
-  // Employee filter — popover, заполняется после loadMembers.
-  wirePopoverPicker(slot, '[data-owner-emp]', (id) => {
-    activeEmployee = id;
-    localStorage.setItem(empKey, id);
-    renderRequests();
-  }, EMPLOYEE_FILTERS);
+  // Охват («тип заявки») обрабатывает renderAll (клик по [data-rq-scope-pick]),
+  // тут вешаем только период.
+  wirePopoverPicker(slot, '[data-owner-period]', (id) => { activePeriod = id; localStorage.setItem(periodKey, id); renderRequests(); }, PERIODS);
 
-  // Статистика пересчитывается из ленты — обновляем при каждой её
-  // перерисовке (первая загрузка, socket-синк, действия по заявкам).
-  onRequestsUpdated('owner-overview-stats', redrawStats);
-
-  // Загружаем список сотрудников и обновляем employee-filter dropdown.
-  loadMembersForFilter().then(list => {
-    EMPLOYEE_FILTERS = [
-      { id: 'all', labelKey: 'owner.emp_filter_all' },
-      ...list.map(m => ({ id: String(m.id), label: m.full_name })),
-    ];
-    const host = slot.querySelector('[data-owner-emp]');
-    if (!host) return;
-    const menu = host.querySelector('.picker-menu');
-    if (!menu) return;
-    menu.innerHTML = EMPLOYEE_FILTERS.map(x => `
-      <button type="button" class="picker-menu-item ${x.id === activeEmployee ? 'is-active' : ''}"
-              data-pick="${x.id}"${x.labelKey ? ` data-i18n="${x.labelKey}"` : ''}>
-        ${escapeHTML(x.labelKey ? t(x.labelKey) : x.label)}
-      </button>
-    `).join('');
-    applyTranslations();
-  }).catch(()=>{});
+  // Команда: участники → панель нагрузки (workload). renderAll отрисует её
+  // в [data-rq-team]; имена берутся из состава + исполнителей заявок.
+  loadMembersForFilter().then(list => setRequestTeam(list)).catch(() => {});
 
   if (!slot.__remsLangBound) {
     slot.__remsLangBound = true;
-    onLangChange(() => redrawStats());
+    onLangChange(() => { renderRequests(); applyTranslations(); });
   }
 }
 
@@ -247,70 +144,6 @@ async function loadMembersForFilter() {
   } catch {
     return [];
   }
-}
-
-function renderRequestsEmpty() {
-  return `
-    <div class="empty-state empty-state--inline">
-      <i class="ph ph-clipboard"></i>
-      <span class="empty-state-text" data-i18n="employee.requests_empty_for_filter">
-        По выбранным фильтрам заявок нет.
-      </span>
-    </div>
-  `;
-}
-
-function renderStatsRows(user, myOrgId, period) {
-  const stats = computeOwnerStats(getRequests(), myOrgId, period);
-  const inWork     = Number(stats.requests_in_work ?? 0);
-  const poolFree   = Number(stats.pool_free ?? 0);
-  const closed     = Number(stats.requests_closed_period ?? 0);
-  const opened     = Number(stats.requests_opened_period ?? 0);
-  const handledN   = Number(stats.requests_handled ?? 0);
-  const hasRating  = stats.rating_avg != null && handledN > 0;
-  const ratingAvg  = hasRating ? Number(stats.rating_avg).toFixed(1) : '';
-  const hasPartnerRating = stats.rating_avg_partner != null && Number(stats.partner_handled) > 0;
-  const partnerAvg = hasPartnerRating ? Number(stats.rating_avg_partner).toFixed(1) : '';
-  return `
-    <div class="profile-row">
-      <span class="profile-row-label" data-i18n="employee.stat_role">Ваша роль в организации</span>
-      <span class="profile-row-value">
-        <span class="row-chip chip-owner">${t('roles.owner')} <i class="ph-duotone ph-shield-star"></i></span>
-      </span>
-    </div>
-    <div class="profile-row">
-      <span class="profile-row-label" data-i18n="owner.stat_in_work_total">Заявок в работе</span>
-      <span class="profile-row-value">${inWork}</span>
-    </div>
-    <div class="profile-row">
-      <span class="profile-row-label" data-i18n="owner.stat_pool_free">Свободных в пуле</span>
-      <span class="profile-row-value">${poolFree}</span>
-    </div>
-    <div class="profile-row">
-      <span class="profile-row-label" data-i18n="owner.stat_closed_period">Закрыто за период</span>
-      <span class="profile-row-value">${closed}</span>
-    </div>
-    <div class="profile-row">
-      <span class="profile-row-label" data-i18n="owner.stat_opened_period">Открыто за период</span>
-      <span class="profile-row-value">${opened}</span>
-    </div>
-    <div class="profile-row">
-      <span class="profile-row-label" data-i18n="owner.stat_rating_internal">Средняя оценка работы внутри организации</span>
-      <span class="profile-row-value">
-        ${hasRating
-          ? `${ratingAvg}<i class="ph-duotone ph-star stat-rating-star" aria-hidden="true" style="margin-left:.35rem;"></i>`
-          : `<span class="stats-empty" data-i18n="employee.stat_rating_empty">Нет оценок</span>`}
-      </span>
-    </div>
-    <div class="profile-row" style="border-bottom:none;">
-      <span class="profile-row-label" data-i18n="owner.stat_rating_partner">Средняя оценка работы партнёрами</span>
-      <span class="profile-row-value">
-        ${hasPartnerRating
-          ? `${partnerAvg}<i class="ph-duotone ph-star stat-rating-star" aria-hidden="true" style="margin-left:.35rem;"></i>`
-          : `<span class="stats-empty" data-i18n="employee.stat_rating_empty">Нет оценок</span>`}
-      </span>
-    </div>
-  `;
 }
 
 function renderTogglePicker(list, activeId, marker) {

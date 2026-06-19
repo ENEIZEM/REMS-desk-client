@@ -100,11 +100,11 @@ const TYPE_CONFIG = {
     return 'overview';
   } },
   status_change: {
-    // Для контрактов: и иконка, и цвет — функции от data.action, чтобы
-    // разные события (заявка / принято / разрыв / истёк ...) визуально
-    // отличались в ленте.
-    icon: (n) => contractIcon(n) || 'ph-arrows-clockwise',
-    color: (n) => contractColor(n) || 'blue',
+    // И иконка, и цвет — функции от data.action, чтобы разные события
+    // (контракт / смена статуса заявки) визуально отличались в ленте, а не
+    // были одинаково-синими. Сначала пробуем контракт, затем статус заявки.
+    icon: (n) => contractIcon(n) || requestStatusIcon(n) || 'ph-arrows-clockwise',
+    color: (n) => contractColor(n) || requestStatusColor(n) || 'blue',
     tab: (n) => {
       const action = String(n?.data?.action ?? '');
       // После reload на немигрированной БД data.action может отсутствовать,
@@ -113,12 +113,12 @@ const TYPE_CONFIG = {
       // уведомлению уводил на requests→overview вместо «Партнёров».
       const raw = String(n?.message_text ?? n?.messageText ?? '');
       if (action.startsWith('contract') || raw.includes('contract')) return 'contracts';
-      return n.request_id ? `requests/${n.request_id}` : 'requests';
+      return requestTab(n);
     },
   },
-  new_assignment:         { icon: 'ph-clipboard-text',     color: 'blue',   tab: (n) => n.request_id ? `requests/${n.request_id}` : 'requests' },
-  due_date:               { icon: 'ph-clock-countdown',    color: 'amber',  tab: (n) => n.request_id ? `requests/${n.request_id}` : 'requests' },
-  overdue:                { icon: 'ph-warning-octagon',    color: 'red',    tab: (n) => n.request_id ? `requests/${n.request_id}` : 'requests' },
+  new_assignment:         { icon: 'ph-clipboard-text',     color: 'blue',   tab: (n) => requestTab(n) },
+  due_date:               { icon: 'ph-clock-countdown',    color: 'amber',  tab: (n) => requestTab(n) },
+  overdue:                { icon: 'ph-warning-octagon',    color: 'red',    tab: (n) => requestTab(n) },
 };
 // Fallback now points to #overview — the notifications tab was removed
 // and the full feed lives inside the Overview tab.
@@ -164,6 +164,42 @@ function contractColor(n) {
   if (a === 'contract_expired')           return 'slate';
   if (a === 'contract_edited')            return 'amber';
   return 'blue';
+}
+
+/** Иконка для уведомления о смене статуса заявки (data.action='request_*').
+ *  Раньше все статусы заявки были одинаково-синими с ph-arrows-clockwise. */
+function requestStatusIcon(n) {
+  const a = String(n?.data?.action ?? '');
+  if (!a.startsWith('request_')) return null;
+  if (a === 'request_assigned')    return 'ph-hand-grab';
+  if (a === 'request_in_progress') return 'ph-wrench';
+  if (a === 'request_done')        return 'ph-check-circle';
+  if (a === 'request_closed')      return 'ph-lock-simple';
+  if (a === 'request_cancelled')   return 'ph-x-circle';
+  return null;
+}
+
+/** Цвет уведомления о смене статуса заявки — по семантике события:
+ *  прогресс=синий, готова-к-приёмке=янтарь (нужно ваше действие),
+ *  закрыта=зелёный (успех), отменена=красный. */
+function requestStatusColor(n) {
+  const a = String(n?.data?.action ?? '');
+  if (!a.startsWith('request_')) return null;
+  if (a === 'request_assigned' || a === 'request_in_progress') return 'blue';
+  if (a === 'request_done')      return 'amber';
+  if (a === 'request_closed')    return 'green';
+  if (a === 'request_cancelled') return 'red';
+  return 'blue';
+}
+
+/**
+ * Куда вести по клику на уведомление о заявке — РОЛЬ-ЗАВИСИМО, т.к. лента
+ * заявок у руководителя живёт на «Обзоре», а у сотрудника — на «Заявках».
+ * Возвращает `<tab>/<id>` (id для подсветки целевой карточки) либо `<tab>`.
+ */
+function requestTab(n) {
+  const base = document.body.dataset.role === 'owner' ? 'overview' : 'requests';
+  return n?.request_id ? `${base}/${n.request_id}` : base;
 }
 
 /**

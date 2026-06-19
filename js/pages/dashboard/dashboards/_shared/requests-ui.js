@@ -19,6 +19,75 @@ function fmtDate(iso) {
   try { return new Date(iso).toLocaleDateString(getLang() === 'en' ? 'en-US' : 'ru-RU'); } catch { return String(iso); }
 }
 
+// Срочность — ЕДИНСТВЕННЫЙ «горячий» канал карточки. Активный SLA-час:
+//   • new                     → срок ВЗЯТИЯ  (response_due, от created_at)
+//   • assigned / in_progress  → срок РЕШЕНИЯ (due_date, от assigned_at)
+//   • терминальные / нет срока → none (ничего не подсвечиваем)
+// Уровень: overdue (просрочено) → soon (<25% времени) → ok → none.
+// Деградирует мягко: если миграция SLA не применена (нет response_due/
+// due_date) — вернётся none, карточка просто без пилла срочности.
+// Конец активного SLA-окна (ms) или null, если срока нет (терминальные /
+// немигрированная БД). Вынесено, чтобы переиспользовать в сортировке секций.
+function activeDeadlineMs(r) {
+  if (r.status === 'new' && r.response_due) return new Date(r.response_due).getTime();
+  if ((r.status === 'assigned' || r.status === 'in_progress') && r.due_date) return new Date(r.due_date).getTime();
+  return null;
+}
+/** Остаток до дедлайна в ms (отрицательный = просрочено, Infinity = нет срока).
+ *  Для сортировки секций «по срочности»: просроченные и горящие — вверху. */
+export function slaRemainingMs(r) {
+  const end = activeDeadlineMs(r);
+  return end == null ? Infinity : end - Date.now();
+}
+
+export function urgencyOf(r) {
+  let end = null, start = null, kind = null;
+  if (r.status === 'new' && r.response_due) { end = r.response_due; start = r.created_at; kind = 'response'; }
+  else if ((r.status === 'assigned' || r.status === 'in_progress') && r.due_date) { end = r.due_date; start = r.assigned_at || r.created_at; kind = 'resolution'; }
+  if (!end) return { level: 'none', text: '' };
+  const now = Date.now(), endMs = new Date(end).getTime();
+  const remaining = endMs - now;
+  if (remaining <= 0) return { level: 'overdue', text: t('requests.sla.overdue', { t: fmtSpan(-remaining) }) };
+  const startMs = start ? new Date(start).getTime() : endMs - 24 * 3600e3;
+  const fracLeft = remaining / Math.max(endMs - startMs, 1);
+  const text = kind === 'response'
+    ? t('requests.sla.take', { t: fmtSpan(remaining) })
+    : t('requests.sla.left', { t: fmtSpan(remaining) });
+  return { level: fracLeft <= 0.25 ? 'soon' : 'ok', text };
+}
+function fmtSpan(ms) {
+  const m = Math.round(ms / 60000);
+  if (m < 60) return `${Math.max(m, 1)}${t('requests.sla.u_m')}`;
+  const h = ms / 3600000;
+  if (h < 48) return `${Math.round(h)}${t('requests.sla.u_h')}`;
+  return `${Math.round(h / 24)}${t('requests.sla.u_d')}`;
+}
+
+// Индикатор «обновлено»: карточка помечается, если заявка изменилась
+// (updated_at) ПОСЛЕ того, как пользователь последний раз открывал её
+// дорожную карту. Базлайн пишется в localStorage при открытии роадмапа
+// (и после собственных действий — renderRoadmap вызывается со свежими
+// данными, поэтому свои изменения не флагаются). Никогда-не-открытые
+// заявки индикатора не получают (чтобы не шуметь — их и так поднимают
+// секции/срочность).
+// Id текущего пользователя — чтобы на карточке отличать «создана вами»
+// от «свободна» (ставит mountRequests через setRequestViewer).
+let _viewerId = null;
+export function setRequestViewer(id) { _viewerId = id != null ? Number(id) : null; }
+
+const SEEN_KEY = 'rems_req_seen';
+function seenMap() { try { return JSON.parse(localStorage.getItem(SEEN_KEY) || '{}'); } catch { return {}; } }
+export function markRequestSeen(id, updatedAt) {
+  if (id == null || !updatedAt) return;
+  const m = seenMap();
+  m[String(id)] = updatedAt;
+  try { localStorage.setItem(SEEN_KEY, JSON.stringify(m)); } catch {}
+}
+function isRequestUpdated(r) {
+  const seen = seenMap()[String(r.id)];
+  return seen != null && r.updated_at != null && new Date(r.updated_at) > new Date(seen);
+}
+
 const STATUS_ICON = {
   new: 'ph-hand-palm', assigned: 'ph-user-focus', in_progress: 'ph-wrench',
   done: 'ph-check-circle', closed: 'ph-lock-simple', cancelled: 'ph-x-circle',
@@ -52,31 +121,49 @@ export function typeChipHTML(r) {
     : `<span class="request-type-chip request-type-chip--contract"><i class="ph ph-handshake"></i><span>${escapeHTML(t('requests.type_contract'))}</span></span>`;
 }
 
-/** Карточка заявки. Кликабельна целиком (data-rq-open на корне):
- *  слева цветная статус-полоса, в шапке — иконка-тайл статуса, номер и
- *  тип-чип; в подвале — мета и аффорданс «Дорожная карта ›». */
+/** Карточка заявки. Кликабельна целиком (data-rq-open на корне).
+ *  ДВЕ ОСИ РАЗВЕДЕНЫ ПО КАНАЛАМ (редизайн 2026-06):
+ *   • СРОЧНОСТЬ — единственный «горячий» сигнал: левая кромка + пилл
+ *     остатка времени (серый → янтарь → красный по активному SLA-часу).
+ *   • СТАТУС — тихий: маленькая точка-категория (зелёная=свободна,
+ *     синяя=готова, нейтральная=в работе, серая=закрыта) + текст-метка.
+ *   Приоритет с карточки убран — он лишь вход в расчёт срока (виден в детали).
+ */
 export function requestCardHTML(r) {
+  const u = urgencyOf(r);
+  const terminal = r.status === 'closed' || r.status === 'cancelled';
   const eq = r.equipment
     ? `<span class="contract-muted"><i class="ph ${r.equipment.category_icon || 'ph-desktop'}"></i> ${escapeHTML([r.equipment.brand, r.equipment.model].filter(Boolean).join(' ') || r.equipment.inventory_number || '—')}</span>`
     : '';
-  // Исполнитель в мете — только если назначен. «Свободна» больше НЕ
-  // дублируем в мете: для new это уже сказано чипом статуса.
   const assignee = r.assignee_name
     ? `<span class="contract-muted"><i class="ph ph-user"></i> ${escapeHTML(r.assignee_name)}</span>`
     : '';
-  const due = r.due_date ? `<span class="contract-muted"><i class="ph ph-calendar"></i> ${escapeHTML(fmtDate(r.due_date))}</span>` : '';
-  const meta = [partiesLine(r), eq, assignee, due].filter(Boolean).join('<span class="contract-dot">·</span>');
-  const terminal = r.status === 'closed' || r.status === 'cancelled';
+  const meta = [partiesLine(r), eq, assignee].filter(Boolean).join('<span class="contract-dot">·</span>');
+
+  const statusText = r.status === 'new'
+    ? (_viewerId != null && Number(r.author_id) === _viewerId ? t('requests.created_by_you') : t('requests.unassigned'))
+    : statusLabel(r.status);
+  const dueIcon = u.level === 'overdue' ? 'ph-alarm' : 'ph-clock';
+  const duePill = u.level !== 'none'
+    ? `<span class="rq-due rq-due-${u.level}"><i class="ph ${dueIcon}"></i> ${escapeHTML(u.text)}</span>`
+    : '';
+  // Индикатор «обновлено» — заявка изменилась с момента последнего просмотра.
+  const updated = isRequestUpdated(r);
+  const updatedPill = updated
+    ? `<span class="rq-updated" title="${escapeHTML(t('requests.updated'))}"><i class="ph-fill ph-bell-ringing"></i> ${escapeHTML(t('requests.updated'))}</span>`
+    : '';
+
   return `
-    <div class="request-card req-tone-${r.status}${terminal ? ' request-card--terminal' : ''}" data-rq-card="${r.id}" data-rq-open="${r.id}" role="button" tabindex="0"
+    <div class="request-card rq-urg-${u.level}${terminal ? ' request-card--terminal' : ''}${updated ? ' request-card--updated' : ''}" data-rq-card="${r.id}" data-rq-open="${r.id}" role="button" tabindex="0"
          aria-label="${escapeHTML(r.request_number)}">
       <div class="request-card-head">
         <div class="request-card-id">
-          <span class="request-card-status-ico"><i class="ph-bold ${STATUS_ICON[r.status] || 'ph-clipboard-text'}"></i></span>
+          <span class="rq-dot rq-dot-${r.status}" aria-hidden="true"></span>
           <span class="request-card-number">${escapeHTML(r.request_number)}</span>
           ${typeChipHTML(r)}
+          <span class="rq-status-label">${escapeHTML(statusText)}</span>
         </div>
-        <div class="request-card-head-right">${priorityBadge(r.priority)}${statusBadge(r.status)}</div>
+        <div class="request-card-head-right">${updatedPill}${duePill}</div>
       </div>
       <div class="request-card-desc">${escapeHTML(r.description)}</div>
       ${cardAttachmentsHTML(r.last_attachments)}

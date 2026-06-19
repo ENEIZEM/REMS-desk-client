@@ -24,6 +24,7 @@ import { t, initI18n, getLang, onLangChange, applyTranslations } from '../i18n.j
 import { wireFormGuard }                     from '../form-guard.js';
 import { createCodeInput }                   from '../lib/code-input.js';
 import { grantPinPass }                      from '../lib/pin-gate.js';
+import { phoneChannelEnabled, loadFeatures } from '../config.js';
 
 // ── Hoisted helpers ─────────────────────────────────────────────
 function q(sel) { return document.querySelector(sel); }
@@ -47,6 +48,9 @@ function isValidContact(val) {
   // that the backend would accept here but reject later.
   const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const phoneRe = /^\+?\d{10,15}$/;
+  // Телефон — канал только при подключённом SMS-провайдере (config).
+  // Бэкенд-логику телефона не трогаем: тут лишь не пускаем телефон в UI.
+  if (!phoneChannelEnabled()) return emailRe.test(val);
   return emailRe.test(val) || phoneRe.test(val.replace(/[\s\-().]/g, ''));
 }
 function isStrongPassword(pw) {
@@ -128,9 +132,26 @@ function hideAlert(id) {
 // browsers including older Chromium/Safari builds)
 // ─────────────────────────────────────────────────────────────────
 (async () => {
-  try { await initI18n(); } catch (e) { console.error('[register] i18n failed:', e); }
+  try { await Promise.all([initI18n(), loadFeatures()]); }
+  catch (e) { console.error('[register] init failed:', e); }
 
   if (!requireGuest()) return;   // already logged in — bail out before touching UI
+
+  // Пока SMS-провайдер не подключён — контакт только email: подменяем
+  // подпись/плейсхолдер/подсказку на email-only варианты (data-i18n меняем,
+  // а не текст — applyTranslations переведёт и при смене языка). HTML и
+  // бэкенд-логику телефона НЕ режем — это лишь визуальное скрытие канала.
+  if (!phoneChannelEnabled()) {
+    const setKey = (sel, attr, key) => {
+      const el = q(sel);
+      if (el) el.setAttribute(attr, key);
+    };
+    setKey('label[for="reg-contact"] span[data-i18n]', 'data-i18n', 'auth.register.contact_label_email');
+    setKey('#reg-contact', 'data-i18n-ph', 'auth.register.contact_ph_email');
+    const hint = document.querySelector('[data-i18n="auth.register.contact_hint"]');
+    if (hint) hint.setAttribute('data-i18n', 'auth.register.contact_hint_email');
+    applyTranslations();
+  }
 
   // Re-translate visible alerts/field-errors when language changes.
   onLangChange(() => applyTranslations());
@@ -469,7 +490,7 @@ function hideAlert(id) {
       showFieldError('err-contact', 'errors.required');
       valid = false;
     } else if (!isValidContact(contact)) {
-      showFieldError('err-contact', 'errors.invalid_contact');
+      showFieldError('err-contact', phoneChannelEnabled() ? 'errors.invalid_contact' : 'errors.invalid_email');
       valid = false;
     }
 

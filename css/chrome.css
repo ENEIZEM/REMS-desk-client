@@ -147,8 +147,13 @@ body:not(.rems-nav-ready) .sidebar nav { visibility: hidden; }
 
 /* Бренд-логотип внизу сайдбара (sidebar — flex-column, поэтому
    margin-top:auto прижимает футер к низу). */
-.sidebar-footer { margin-top: auto; padding-top: var(--space-4); display: flex; justify-content: center; }
-.sidebar-footer img { height: 1.9rem; width: auto; max-width: 100%; opacity: 0.9; }
+.sidebar-footer {
+  margin-top: auto; padding-top: var(--space-4);
+  display: flex; flex-direction: column; gap: 0.15rem; align-items: flex-start;
+}
+.sidebar-footer-copy { font-size: var(--text-xs); color: var(--clr-text-muted); }
+.sidebar-footer-mail { font-size: var(--text-xs); color: var(--clr-text-secondary); text-decoration: none; }
+.sidebar-footer-mail:hover { color: var(--clr-accent); text-decoration: underline; }
 
 .sidebar {
   position: absolute;

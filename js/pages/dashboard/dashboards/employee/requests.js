@@ -1,41 +1,26 @@
 /* ═══════════════════════════════════════════════════════════════
-   Employee Requests tab.
+   Employee Requests tab — единственный рабочий стол заявок сотрудника.
 
-   Структура (по обновлённому дизайну):
-     1. Шапка заявок — два picker'а (scope / type) + period picker.
-        Min-height фикс; max-height с внутренним скроллом. Empty-state
-        когда фильтр не даёт совпадений.
-     2. Двухколонный блок: слева Внутренние SLA, справа Лимиты.
-
-   Шапка организации НЕ рендерится здесь — она только на Обзоре
-   (по требованию редизайна).
+   Структура (редизайн 2026-06): только шапка + лента. Плитки-KPI
+   (фильтры) и сегментация — внутри ленты (общий модуль). Дублирующие
+   блоки SLA/лимитов УБРАНЫ отсюда — они доступны во вкладке «Организация»
+   (read-only), а Обзор сотрудника больше не дублирует ленту заявок.
    ═══════════════════════════════════════════════════════════════ */
 
 import { t, applyTranslations, onLangChange } from '../../../../i18n.js';
-import { fmtBytes } from '../../format.js';
-import { renderRowChip } from '../../badges.js';
+import { setNotificationsTarget, loadNotifications } from '../../notifications.js';
 import {
   mountRequests, renderAll as renderRequests,
-  registerListFilter, onRequestsUpdated, periodStart,
+  registerListFilter, periodStart,
 } from '../_shared/requests.js';
 
+// Единственный рабочий стол заявок сотрудника. Рендерится в слот вкладки
+// «Обзор» (#employee-overview-slot) — отдельная вкладка «Заявки» убрана,
+// чтобы не дублировать ленту (орг-шапка/SLA/лимиты живут в «Организации»).
 export function mountEmployeeRequests(profile) {
-  const slot = document.querySelector('#employee-requests-slot');
+  const slot = document.querySelector('#employee-overview-slot');
   if (!slot) return;
 
-  const org = profile?.organization || {};
-
-  const SCOPE_FILTERS = [
-    { id: 'all',      labelKey: 'employee.req_scope_all'      },
-    { id: 'internal', labelKey: 'employee.req_scope_internal' },
-    { id: 'partner',  labelKey: 'employee.req_scope_partner'  },
-  ];
-  const TYPE_FILTERS = [
-    { id: 'all_mine', labelKey: 'employee.req_type_all_mine'  },
-    { id: 'created',  labelKey: 'employee.req_type_created'   },
-    { id: 'closed',   labelKey: 'employee.req_type_closed'    },
-    { id: 'free',     labelKey: 'employee.req_type_free'      },
-  ];
   const PERIODS = [
     { id: 'week',  labelKey: 'period.week'  },
     { id: 'month', labelKey: 'period.month' },
@@ -43,120 +28,97 @@ export function mountEmployeeRequests(profile) {
     { id: 'all',   labelKey: 'period.all'   },
   ];
   const scopeKey  = 'rems_emp_req_scope';
-  const typeKey   = 'rems_emp_req_type';
   const periodKey = 'rems_emp_req_period';
   let activeScope  = localStorage.getItem(scopeKey)  || 'all';
-  let activeType   = localStorage.getItem(typeKey)   || 'all_mine';
   let activePeriod = localStorage.getItem(periodKey) || 'month';
 
-  // Реальный фильтр ленты (scope × type × period). Раньше pickers были
-  // декоративными: scope/period игнорировались, а created/closed оба
-  // сводились к «мои» — коллеги автора вообще не видели заявок орги.
-  registerListFilter('emp-requests-tab', (r, ctx) => {
-    if (activeScope === 'internal' && !r.is_internal) return false;
-    if (activeScope === 'partner'  &&  r.is_internal) return false;
-
-    const from = periodStart(activePeriod);
-    if (from) {
-      // Для «закрытых» период считаем по closed_at, для остальных — по created_at.
-      const anchor = activeType === 'closed' ? (r.closed_at || r.created_at) : r.created_at;
-      if (anchor && new Date(anchor) < from) return false;
+  // Пре-фильтр ленты — ТОЛЬКО период. Охват («тип заявки») переехал в
+  // под-фильтры: renderAll читает feed.dataset.rqScope и сам рисует
+  // сегмент в [data-rq-scope]. Ось «чьё/какая стадия» (мои/свободные/
+  // закрытые) раскладывают секции (segmentedHTML): Требуют действия /
+  // Свободный пул / В работе / Архив.
+  registerListFilter('emp-requests-tab', (r) => {
+    // Период применяем ТОЛЬКО к архиву (терминальным) — активные заявки не
+    // должны прятаться под «месяц» (старая, но ещё открытая заявка важна).
+    const terminal = r.status === 'closed' || r.status === 'cancelled';
+    if (terminal) {
+      const from = periodStart(activePeriod);
+      if (from && new Date(r.closed_at || r.created_at) < from) return false;
     }
-
-    const mineAuthor   = Number(r.author_id) === ctx.selfId;
-    const mineAssignee = Number(r.assigned_to_id) === ctx.selfId;
-    if (activeType === 'created') return mineAuthor;
-    if (activeType === 'closed')  return r.status === 'closed' && (mineAssignee || mineAuthor);
-    if (activeType === 'free')    return r.status === 'new' && Number(r.contractor_org_id) === ctx.myOrgId;
-    return mineAuthor || mineAssignee; // all_mine
+    return true;
   });
 
   slot.innerHTML = `
-    <div class="page-header page-header--with-action">
-      <div>
-        <h1 class="page-title" data-i18n="employee.requests_title">Заявки</h1>
-        <p class="page-desc" data-i18n="employee.requests_desc">Внутренние и партнёрские заявки. Фильтры применяются к видимому списку.</p>
+    <!-- Шапка вкладки «Обзор» (заголовок + «Создать заявку») — общая,
+         в #tab-overview; здесь не дублируем. Плитки = статистика+фильтр. -->
+    <div class="rq-tiles-row" data-rq-tiles="emp-requests-tab"></div>
+
+    <!-- Под-фильтры над лентой: тип заявки (сегмент с цифрами) │ период
+         (выпадающий список). Разделены вертикальной линией. -->
+    <div class="rq-subfilters">
+      <div class="rq-subfilter-group" data-rq-scope="emp-requests-tab"></div>
+      <div class="rq-subfilter-group rq-subfilter-period">
+        ${renderTogglePicker(PERIODS, activePeriod, 'data-req-period-picker')}
       </div>
-      <button class="btn btn-primary" data-rq-create>
-        <i class="ph ph-plus"></i> <span data-i18n="requests.create_btn">Создать заявку</span>
-      </button>
     </div>
 
-    <!-- Шапка заявок: profile-card паттерн (как SLA/Лимиты) -->
-    <div class="card profile-card">
-      <div class="profile-card-header profile-card-header--with-actions">
-        <div class="profile-card-icon navy"><i class="ph-bold ph-clipboard-text"></i></div>
-        <h3 class="profile-card-title" data-i18n="employee.requests_header_full">Заявки</h3>
-        <div class="notif-header-actions">
-          ${renderTogglePicker(SCOPE_FILTERS,  activeScope,  'data-req-scope-picker')}
-          ${renderTogglePicker(TYPE_FILTERS,   activeType,   'data-req-type-picker')}
-          ${renderTogglePicker(PERIODS,        activePeriod, 'data-req-period-picker')}
-          <!-- Tooltip всегда последним по правилу B10 -->
-          <span class="profile-card-tooltip profile-card-tooltip--end" tabindex="0" data-tooltip-key="employee.requests_header_hint">
-            <i class="ph ph-info"></i>
-          </span>
-        </div>
-      </div>
-      <div class="profile-card-body requests-feed-body" id="employee-requests-body"
-           data-requests-list data-rq-filter="emp-requests-tab"></div>
-    </div>
-
-    <div class="profile-two-col employee-two-col" style="margin-top:1rem;">
-      <!-- LEFT: Внутренние SLA -->
+    <!-- Рабочая зона: лента заявок | уведомления (2-колонка, лента шире) —
+         единый паттерн с дашбордом руководителя. -->
+    <div class="profile-two-col employee-two-col rq-work-cols">
       <div class="profile-col employee-col-left">
-        <div class="card profile-card">
-          <div class="profile-card-header">
-            <div class="profile-card-icon navy"><i class="ph-bold ph-clock-countdown"></i></div>
-            <h3 class="profile-card-title" data-i18n="profile.internal_sla">Внутренние SLA</h3>
-            <!-- Подсказка в правом углу (последняя) — B10 -->
-            <span class="profile-card-tooltip profile-card-tooltip--end" tabindex="0" data-tooltip-key="profile.internal_sla_hint">
-              <i class="ph ph-info"></i>
-            </span>
+        <div class="card profile-card rq-work-feed">
+          <div class="profile-card-header profile-card-header--with-actions">
+            <div class="profile-card-icon navy"><i class="ph-bold ph-clipboard-text"></i></div>
+            <h3 class="profile-card-title" data-i18n="employee.requests_header_full">Заявки</h3>
+            <div class="notif-header-actions">
+              <span class="profile-card-tooltip profile-card-tooltip--end" tabindex="0" data-tooltip-key="employee.requests_header_hint">
+                <i class="ph ph-info"></i>
+              </span>
+            </div>
           </div>
-          <div class="profile-card-body">
-            ${renderSlaRows(org)}
-          </div>
+          <div class="profile-card-body requests-feed-body" id="employee-requests-body"
+               data-requests-list data-rq-segmented data-rq-filter="emp-requests-tab"
+               data-rq-scope="${activeScope}"></div>
         </div>
       </div>
 
-      <!-- RIGHT: Лимиты организации -->
       <div class="profile-col employee-col-right">
-        <div class="card profile-card">
-          <div class="profile-card-header">
-            <div class="profile-card-icon teal"><i class="ph-bold ph-gauge"></i></div>
-            <h3 class="profile-card-title" data-i18n="profile.limits">Лимиты организации</h3>
-            <span class="profile-card-tooltip profile-card-tooltip--end" tabindex="0" data-tooltip-key="profile.tip_limits">
-              <i class="ph ph-info"></i>
-            </span>
+        <div class="card profile-card employee-notifs-card">
+          <div class="profile-card-header profile-card-header--with-actions">
+            <div class="profile-card-icon teal"><i class="ph-bold ph-bell"></i></div>
+            <h3 class="profile-card-title" data-i18n="notifications.title">Уведомления</h3>
+            <div class="notif-header-actions">
+              <div class="notif-filter" role="tablist" data-notif-filter-host>
+                <button type="button" class="notif-filter-btn is-active"
+                        data-filter="all" role="tab" aria-selected="true"
+                        data-i18n="notifications.filter_all">Все</button>
+                <button type="button" class="notif-filter-btn"
+                        data-filter="unread" role="tab" aria-selected="false">
+                  <span data-i18n="notifications.filter_unread">Непрочитанные</span>
+                  <span class="notif-filter-count" data-unread-count></span>
+                </button>
+              </div>
+              <button class="btn btn-secondary btn-sm" data-mark-all-read>
+                <i class="ph ph-checks"></i>
+                <span data-i18n="notifications.mark_all">Прочитать все</span>
+              </button>
+            </div>
           </div>
-          <div class="profile-card-body">
-            ${renderLimitsRows(org)}
+          <div class="profile-card-body" id="employee-notifs-slot">
+            <div class="empty-state empty-state--inline">
+              <i class="ph ph-bell-slash"></i>
+              <span class="empty-state-text" data-i18n="notifications.empty">Нет новых уведомлений</span>
+            </div>
           </div>
         </div>
       </div>
     </div>
   `;
 
-  // Feature pills для лимитов.
-  if (org.limits) {
-    const L = org.limits;
-    setFeaturePill(slot.querySelector('#emp-lim-images-flag'), L.allow_image_uploads);
-    setFeaturePill(slot.querySelector('#emp-lim-videos-flag'), L.allow_video_uploads);
-    setFeaturePill(slot.querySelector('#emp-lim-docs-flag'),   L.allow_document_uploads);
-  }
-
   // Pickers — фильтр зарегистрирован выше, достаточно перерисовать.
+  // Охват («тип заявки») обрабатывает renderAll (клик по [data-rq-scope-pick]);
+  // тут вешаем только период.
   const reRender = () => renderRequests();
-  wirePopoverPicker(slot, '[data-req-scope-picker]', (id) => {
-    activeScope = id;
-    localStorage.setItem(scopeKey, id);
-    reRender();
-  }, SCOPE_FILTERS);
-  wirePopoverPicker(slot, '[data-req-type-picker]', (id) => {
-    activeType = id;
-    localStorage.setItem(typeKey, id);
-    reRender();
-  }, TYPE_FILTERS);
   wirePopoverPicker(slot, '[data-req-period-picker]', (id) => {
     activePeriod = id;
     localStorage.setItem(periodKey, id);
@@ -166,46 +128,23 @@ export function mountEmployeeRequests(profile) {
   // Перевод свежевставленного HTML.
   applyTranslations();
 
+  // Уведомления — в правой колонке рабочей зоны (как у руководителя).
+  setNotificationsTarget('#employee-notifs-slot');
+  loadNotifications().catch(err => console.warn('[employee requests notifications]', err));
+
   // Заявки: лента + дорожная карта (общий модуль).
   mountRequests(profile).catch(err => console.warn('[employee requests]', err));
 
-  // Живой счётчик «активных заявок» в лимитах: не-терминальные заявки,
-  // где моя орг — заказчик (лимит max_active_requests касается заказчика).
-  onRequestsUpdated('emp-requests-limits', (list) => {
-    const el = document.querySelector('#employee-requests-slot [data-active-req-count]');
-    if (!el) return;
-    const myOrg = Number(org?.id);
-    el.textContent = String(list.filter(r =>
-      Number(r.client_org_id) === myOrg && !['closed', 'cancelled'].includes(r.status)
-    ).length);
-  });
-
-  // Re-render на смену языка: перерисуем динамические куски (лимиты
-  // с template-литералами, picker active-label, body).
+  // Re-render на смену языка: перечитать picker active-label + перерисовать.
   if (!slot.__remsLangBound) {
     slot.__remsLangBound = true;
     onLangChange(() => {
-      const sla = slot.querySelector('.profile-col.employee-col-left .profile-card-body');
-      if (sla) sla.innerHTML = renderSlaRows(org);
-      const lims = slot.querySelector('.profile-col.employee-col-right .profile-card-body');
-      if (lims) {
-        lims.innerHTML = renderLimitsRows(org);
-        if (org.limits) {
-          const L = org.limits;
-          setFeaturePill(slot.querySelector('#emp-lim-images-flag'), L.allow_image_uploads);
-          setFeaturePill(slot.querySelector('#emp-lim-videos-flag'), L.allow_video_uploads);
-          setFeaturePill(slot.querySelector('#emp-lim-docs-flag'),   L.allow_document_uploads);
-        }
-      }
-      // Picker active-labels перечитаем.
       const setActive = (sel, list, id) => {
         const lbl = slot.querySelector(`${sel} [data-active-label]`);
         const def = list.find(x => x.id === id);
         if (lbl && def) lbl.textContent = t(def.labelKey);
       };
-      setActive('[data-req-scope-picker]',  SCOPE_FILTERS, activeScope);
-      setActive('[data-req-type-picker]',   TYPE_FILTERS,  activeType);
-      setActive('[data-req-period-picker]', PERIODS,       activePeriod);
+      setActive('[data-req-period-picker]', PERIODS, activePeriod);
       reRender();
       applyTranslations();
     });
@@ -213,110 +152,6 @@ export function mountEmployeeRequests(profile) {
 }
 
 /* ── Helpers ─────────────────────────────────────────────────── */
-
-function renderRequestsEmpty(type, scope, period) {
-  // Реальных заявок ещё нет — всегда empty. Текст уточняет про
-  // выбранные фильтры. Layout: иконка + текст на одной строке с
-  // мягким padding'ом, не центрируется по карточке (по требованию).
-  return `
-    <div class="empty-state empty-state--inline">
-      <i class="ph ph-clipboard"></i>
-      <span class="empty-state-text" data-i18n="employee.requests_empty_for_filter">
-        По выбранным фильтрам заявок нет.
-      </span>
-    </div>
-  `;
-}
-
-function renderSlaRows(org) {
-  const L = org?.limits || {};
-  const h = t('profile.hours_short');
-  const cells = [
-    { key: 'profile.sla_critical', cls: 'sla-critical', val: L.internal_sla_critical_h },
-    { key: 'profile.sla_high',     cls: 'sla-high',     val: L.internal_sla_high_h     },
-    { key: 'profile.sla_medium',   cls: 'sla-medium',   val: L.internal_sla_medium_h   },
-    { key: 'profile.sla_low',      cls: 'sla-low',      val: L.internal_sla_low_h      },
-  ];
-  return cells.map((c, i) => `
-    <div class="profile-row sla-row-wide"
-         ${i === cells.length - 1 ? 'style="border-bottom:none;"' : ''}>
-      <span class="profile-row-label">
-        <span class="sla-pri ${c.cls}" data-i18n="${c.key}">—</span>
-      </span>
-      <span class="profile-row-value">${c.val != null ? `${c.val} ${h}` : '—'}</span>
-    </div>
-  `).join('');
-}
-
-function renderLimitsRows(org) {
-  const L = org?.limits || {};
-  const planLabel = org?.subscription_purchased ? 'Pro' : 'Free';
-  const empCount = org?.current_employee_count ?? 0;
-  const empMax   = L.max_employees ?? '—';
-  const reqMax   = L.max_active_requests ?? '—';
-  // Живое значение проставляет подписка onRequestsUpdated (см. mount).
-  const reqCur   = `<span data-active-req-count>0</span>`;
-  const perReq  = t('profile.per_request');
-  const upTo    = t('profile.up_to');
-  const pcsUnit = t('profile.pcs_unit');
-
-  // B11: тариф справа (как value); строка "Сотрудников · Заявок"
-  // объединена в один sub-line под заголовком «Тариф».
-  return `
-    <div class="profile-row">
-      <span class="profile-row-label-stack">
-        <span class="profile-row-label" data-i18n="profile.plan">Тариф</span>
-        <span class="profile-row-sub">
-          ${empCount} / ${empMax} <span data-i18n="profile.max_employees_short">сотрудников</span>
-          ·
-          ${reqCur} / ${reqMax} <span data-i18n="profile.max_active_requests_short">активных заявок</span>
-        </span>
-      </span>
-      <span class="profile-row-value plan-pill">${planLabel}</span>
-    </div>
-    <div class="profile-row">
-      <span class="profile-row-label-stack">
-        <span class="profile-row-label" data-i18n="profile.images">Изображения</span>
-        <span class="profile-row-sub">
-          ${L.max_photo_per_request != null
-            ? `${upTo} ${L.max_photo_per_request} ${pcsUnit}${perReq} · ${fmtBytes(L.max_image_upload_size_bytes)}`
-            : '—'}
-        </span>
-      </span>
-      <span id="emp-lim-images-flag" class="badge feature-pill">—</span>
-    </div>
-    <div class="profile-row">
-      <span class="profile-row-label-stack">
-        <span class="profile-row-label" data-i18n="profile.documents">Документы</span>
-        <span class="profile-row-sub">
-          ${L.max_document_per_request != null
-            ? `${upTo} ${L.max_document_per_request} ${pcsUnit}${perReq} · ${fmtBytes(L.max_document_upload_size_bytes)}`
-            : '—'}
-        </span>
-      </span>
-      <span id="emp-lim-docs-flag" class="badge feature-pill">—</span>
-    </div>
-    <div class="profile-row" style="border-bottom:none;">
-      <span class="profile-row-label-stack">
-        <span class="profile-row-label" data-i18n="profile.videos">Видео</span>
-        <span class="profile-row-sub">
-          ${L.max_videos_per_request != null
-            ? `${upTo} ${L.max_videos_per_request} ${pcsUnit}${perReq} · ${fmtBytes(L.max_video_upload_size_bytes)} · ${L.max_video_duration_seconds}${t('profile.seconds_short')}`
-            : '—'}
-        </span>
-      </span>
-      <span id="emp-lim-videos-flag" class="badge feature-pill">—</span>
-    </div>
-  `;
-}
-
-function setFeaturePill(el, allowed) {
-  if (!el) return;
-  const desc = allowed
-    ? { key: 'profile.feature_allowed', chip: 'chip-allowed', icon: 'ph-check-circle' }
-    : { key: 'profile.feature_denied',  chip: 'chip-denied',  icon: 'ph-prohibit'    };
-  renderRowChip(el, desc);
-}
 
 /**
  * Popover picker без иконок (B8). Pill-кнопка с label + caret;

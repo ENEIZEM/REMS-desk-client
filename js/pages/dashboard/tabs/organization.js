@@ -65,6 +65,10 @@ export function populateOrgTab(org, role, canEditOrg, canEditLim, isSiteAdmin = 
   const logoOvr  = document.querySelector('#org-logo-overlay');
   if (canEditOrg) { logoWrap.classList.add('editable'); logoOvr.style.display = ''; }
   else            { logoWrap.classList.remove('editable'); logoOvr.style.display = 'none'; }
+  // Кнопка «Улучшить» (апгрейд тарифа) — только владельцу. Для read-only
+  // сотрудника скрываем (подписка не его зона).
+  const upBtn = document.querySelector('#btn-upgrade-sub');
+  if (upBtn) upBtn.style.display = canEditOrg ? '' : 'none';
   // Логотип орги sys_admin'а — фиолетовое кольцо (как у его аватара).
   const logoAv = document.querySelector('#org-logo-avatar');
   if (logoAv) logoAv.classList.toggle('avatar--ring-admin', !!isSiteAdmin);
@@ -84,9 +88,9 @@ export function populateOrgTab(org, role, canEditOrg, canEditLim, isSiteAdmin = 
   // ── Subscription + counters ────────────────────────────────
   document.querySelector('#sub-plan-line').textContent = org.subscription_purchased ? 'Pro' : 'Free';
   document.querySelector('#sub-employee-usage').textContent  = org.limits ? `${org.current_employee_count ?? 0} / ${org.limits.max_employees}` : '—';
-  // Active-request usage placeholder — counts of active requests are not
-  // tracked yet in the API; show 0 until the requests endpoint reports it.
-  document.querySelector('#sub-active-req-usage').textContent = org.limits ? `0 / ${org.limits.max_active_requests}` : '—';
+  // Активные заявки: текущее число считает бэкенд (current_active_requests),
+  // максимум — из organization_limits. Оба значения из БД, не хардкод.
+  document.querySelector('#sub-active-req-usage').textContent = org.limits ? `${org.current_active_requests ?? 0} / ${org.limits.max_active_requests}` : '—';
 
   // ── Limits card: pill on right + secondary "до N · X MB" sub ──
   if (org.limits) {
@@ -109,17 +113,24 @@ export function populateOrgTab(org, role, canEditOrg, canEditLim, isSiteAdmin = 
     document.querySelector('#lim-docs-sub').textContent =
       `${upTo} ${L.max_document_per_request} ${pcsUnit}${perReq} · ${fmtBytes(L.max_document_upload_size_bytes)}`;
 
-    // ── SLA values ─────────────────────────────────────────────
-    document.querySelector('#sla-crit').textContent = `${L.internal_sla_critical_h} ${t('profile.hours_short')}`;
-    document.querySelector('#sla-high').textContent = `${L.internal_sla_high_h} ${t('profile.hours_short')}`;
-    document.querySelector('#sla-med').textContent  = `${L.internal_sla_medium_h} ${t('profile.hours_short')}`;
-    document.querySelector('#sla-low').textContent  = `${L.internal_sla_low_h} ${t('profile.hours_short')}`;
+    // ── SLA-матрица: реакция + устранение по приоритету ─────────
+    const h = t('profile.hours_short');
+    const slaH = (v) => v != null ? `${v} ${h}` : '—';
+    const setSla = (id, v) => { const el = document.querySelector(id); if (el) el.textContent = slaH(v); };
+    setSla('#sla-crit', L.internal_sla_critical_h);
+    setSla('#sla-high', L.internal_sla_high_h);
+    setSla('#sla-med',  L.internal_sla_medium_h);
+    setSla('#sla-low',  L.internal_sla_low_h);
+    setSla('#sla-resp-crit', L.internal_response_sla_critical_h);
+    setSla('#sla-resp-high', L.internal_response_sla_high_h);
+    setSla('#sla-resp-med',  L.internal_response_sla_medium_h);
+    setSla('#sla-resp-low',  L.internal_response_sla_low_h);
   }
 
   // ── Show/hide edit-pencils based on permissions ────────────
   document.querySelectorAll('#tab-org .profile-row-edit-btn').forEach(btn => {
     const field = btn.dataset.editField;
-    const isSlaField = field && field.startsWith('internal_sla_');
+    const isSlaField = field && (field.startsWith('internal_sla_') || field.startsWith('internal_response_sla_'));
     btn.style.display = (isSlaField ? canEditLim : canEditOrg) ? '' : 'none';
   });
 }

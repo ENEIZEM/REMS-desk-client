@@ -64,6 +64,11 @@ const FIELD_EDITORS = {
   internal_sla_high_h:     { title: 'profile.sla_high',     type: 'number', min: 1, max: 240, current: () => _ctx.getOrgData()?.limits?.internal_sla_high_h,     save: (v) => org.updateLimits({ internal_sla_high_h: v     }), successKey: 'profile.sla_saved' },
   internal_sla_medium_h:   { title: 'profile.sla_medium',   type: 'number', min: 1, max: 240, current: () => _ctx.getOrgData()?.limits?.internal_sla_medium_h,   save: (v) => org.updateLimits({ internal_sla_medium_h: v   }), successKey: 'profile.sla_saved' },
   internal_sla_low_h:      { title: 'profile.sla_low',      type: 'number', min: 1, max: 240, current: () => _ctx.getOrgData()?.limits?.internal_sla_low_h,      save: (v) => org.updateLimits({ internal_sla_low_h: v      }), successKey: 'profile.sla_saved' },
+  // SLA реакции (срок взятия) — отдельный редактируемый набор для внутренних заявок.
+  internal_response_sla_critical_h: { title: 'profile.sla_critical', type: 'number', min: 1, max: 240, current: () => _ctx.getOrgData()?.limits?.internal_response_sla_critical_h, save: (v) => org.updateLimits({ internal_response_sla_critical_h: v }), successKey: 'profile.sla_saved' },
+  internal_response_sla_high_h:     { title: 'profile.sla_high',     type: 'number', min: 1, max: 240, current: () => _ctx.getOrgData()?.limits?.internal_response_sla_high_h,     save: (v) => org.updateLimits({ internal_response_sla_high_h: v     }), successKey: 'profile.sla_saved' },
+  internal_response_sla_medium_h:   { title: 'profile.sla_medium',   type: 'number', min: 1, max: 240, current: () => _ctx.getOrgData()?.limits?.internal_response_sla_medium_h,   save: (v) => org.updateLimits({ internal_response_sla_medium_h: v   }), successKey: 'profile.sla_saved' },
+  internal_response_sla_low_h:      { title: 'profile.sla_low',      type: 'number', min: 1, max: 240, current: () => _ctx.getOrgData()?.limits?.internal_response_sla_low_h,      save: (v) => org.updateLimits({ internal_response_sla_low_h: v      }), successKey: 'profile.sla_saved' },
 };
 
 let _currentFieldKey = null;

@@ -13,13 +13,11 @@
 import { t, applyTranslations, onLangChange } from '../../../../i18n.js';
 import { membership } from '../../../../api.js';
 import { toast, errorMessage } from '../../../../auth.js';
-import { setNotificationsTarget, loadNotifications } from '../../notifications.js';
 import { setAvatar } from '../../format.js';
 import { roleBadgeDescriptor, orgStatusBadge, renderIconBadge } from '../../badges.js';
 import { openModal, closeModal, setLoading } from '../../ui-helpers.js';
 import {
-  mountRequests, renderAll as renderRequests,
-  getRequests, onRequestsUpdated, periodStart,
+  mountRequests, getRequests, onRequestsUpdated, periodStart,
 } from '../_shared/requests.js';
 
 /* Статистика сотрудника из загруженной ленты заявок. Раньше она читала
@@ -65,85 +63,24 @@ export function mountEmployeeOverview(profile) {
   const periodStorageKey = 'rems_emp_overview_period';
   let activePeriod = localStorage.getItem(periodStorageKey) || 'month';
 
-  // B9: в Обзоре только две опции (свободные / текущие = мои в работе).
-  const reqFilterKey = 'rems_emp_overview_req_filter';
-  let activeReqFilter = localStorage.getItem(reqFilterKey) || 'free';
-
   slot.innerHTML = `
     ${renderOrgHeader(org, role)}
 
-    <!-- Шапка заявок: оформление как у других profile-card блоков
-         (иконка-тайл слева + заголовок + actions + tooltip последним). -->
-    <div class="card profile-card" style="margin-top:1rem;">
+    <!-- Обзор сотрудника = гланс: членство в орг + личная статистика по
+         заявкам. Рабочая зона (лента | уведомления) — на вкладке «Заявки». -->
+    <div class="card profile-card employee-stats-card" style="margin-top:1rem;">
       <div class="profile-card-header profile-card-header--with-actions">
-        <div class="profile-card-icon navy"><i class="ph-bold ph-clipboard-text"></i></div>
-        <h3 class="profile-card-title" data-i18n="employee.requests_header_overview">Заявки</h3>
+        <div class="profile-card-icon teal"><i class="ph-bold ph-chart-bar"></i></div>
+        <h3 class="profile-card-title" data-i18n="employee.stats_title">Статистика</h3>
         <div class="notif-header-actions">
-          <div class="notif-filter" role="tablist" data-overview-req-filter>
-            <button type="button" class="notif-filter-btn ${activeReqFilter === 'free' ? 'is-active' : ''}"
-                    data-req-filter="free" role="tab"
-                    data-i18n="employee.req_filter_free_short">Свободные</button>
-            <button type="button" class="notif-filter-btn ${activeReqFilter === 'current' ? 'is-active' : ''}"
-                    data-req-filter="current" role="tab"
-                    data-i18n="employee.req_filter_current">Текущие</button>
-          </div>
-          <span class="profile-card-tooltip profile-card-tooltip--end" tabindex="0" data-tooltip-key="employee.req_filter_hint_overview">
-            <i class="ph ph-info"></i>
-          </span>
+          ${renderPeriodPicker(PERIODS, activePeriod)}
         </div>
+        <span class="profile-card-tooltip profile-card-tooltip--end" tabindex="0" data-tooltip-key="employee.stats_hint">
+          <i class="ph ph-info"></i>
+        </span>
       </div>
-      <div class="profile-card-body requests-feed-body" id="employee-overview-requests-body"
-           data-requests-list data-rq-filter="${activeReqFilter}"></div>
-    </div>
-
-    <div class="profile-two-col employee-two-col" style="margin-top:1rem;">
-      <div class="profile-col employee-col-left">
-        <div class="card profile-card employee-stats-card">
-          <div class="profile-card-header profile-card-header--with-actions">
-            <div class="profile-card-icon teal"><i class="ph-bold ph-chart-bar"></i></div>
-            <h3 class="profile-card-title" data-i18n="employee.stats_title">Статистика</h3>
-            <div class="notif-header-actions">
-              ${renderPeriodPicker(PERIODS, activePeriod)}
-            </div>
-            <span class="profile-card-tooltip profile-card-tooltip--end" tabindex="0" data-tooltip-key="employee.stats_hint">
-              <i class="ph ph-info"></i>
-            </span>
-          </div>
-          <div class="profile-card-body" id="employee-stats-body">
-            ${renderStatsRows(user, org, activePeriod)}
-          </div>
-        </div>
-      </div>
-
-      <div class="profile-col employee-col-right">
-        <div class="card profile-card employee-notifs-card">
-          <div class="profile-card-header profile-card-header--with-actions">
-            <div class="profile-card-icon teal"><i class="ph-bold ph-bell"></i></div>
-            <h3 class="profile-card-title" data-i18n="notifications.title">Уведомления</h3>
-            <div class="notif-header-actions">
-              <div class="notif-filter" role="tablist" data-notif-filter-host>
-                <button type="button" class="notif-filter-btn is-active"
-                        data-filter="all" role="tab" aria-selected="true"
-                        data-i18n="notifications.filter_all">Все</button>
-                <button type="button" class="notif-filter-btn"
-                        data-filter="unread" role="tab" aria-selected="false">
-                  <span data-i18n="notifications.filter_unread">Непрочитанные</span>
-                  <span class="notif-filter-count" data-unread-count></span>
-                </button>
-              </div>
-              <button class="btn btn-secondary btn-sm" data-mark-all-read>
-                <i class="ph ph-checks"></i>
-                <span data-i18n="notifications.mark_all">Прочитать все</span>
-              </button>
-            </div>
-          </div>
-          <div class="profile-card-body" id="employee-notifs-slot">
-            <div class="empty-state empty-state--inline">
-              <i class="ph ph-bell-slash"></i>
-              <span class="empty-state-text" data-i18n="notifications.empty">Нет новых уведомлений</span>
-            </div>
-          </div>
-        </div>
+      <div class="profile-card-body" id="employee-stats-body">
+        ${renderStatsRows(user, org, activePeriod)}
       </div>
     </div>
   `;
@@ -154,10 +91,8 @@ export function mountEmployeeOverview(profile) {
   // (или пустые) и переводятся только при следующей смене языка.
   applyTranslations();
 
-  setNotificationsTarget('#employee-notifs-slot');
-  loadNotifications().catch(err => console.warn('[employee overview notifications]', err));
-
-  // Заявки: загрузка ленты + кнопка «Создать» + дорожная карта (общий модуль).
+  // Уведомления переехали в рабочую зону вкладки «Заявки» (рядом с лентой).
+  // Здесь грузим только данные заявок — для пересчёта личной статистики.
   mountRequests(profile).catch(err => console.warn('[employee overview requests]', err));
 
   // Статистика пересчитывается из ленты — обновляем при каждой её
@@ -194,22 +129,6 @@ export function mountEmployeeOverview(profile) {
     const body = slot.querySelector('#employee-stats-body');
     if (body) body.innerHTML = renderStatsRows(user, org, activePeriod);
   }, PERIODS);
-
-  // Segmented request-filter (свободные / текущие).
-  slot.querySelector('[data-overview-req-filter]')?.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-req-filter]');
-    if (!btn) return;
-    const next = btn.getAttribute('data-req-filter');
-    if (!next || next === activeReqFilter) return;
-    activeReqFilter = next;
-    localStorage.setItem(reqFilterKey, next);
-    // Sync active state.
-    slot.querySelectorAll('[data-req-filter]').forEach(b => {
-      b.classList.toggle('is-active', b.getAttribute('data-req-filter') === next);
-    });
-    const body = slot.querySelector('#employee-overview-requests-body');
-    if (body) { body.dataset.rqFilter = next; renderRequests(); }
-  });
 
   // Leave-org confirm.
   wireLeaveOrgModal();
@@ -271,20 +190,6 @@ export function renderOrgHeader(org, role) {
           <span data-i18n="membership.leave_btn">Покинуть организацию</span>
         </button>
       </div>
-    </div>
-  `;
-}
-
-function renderRequestsEmpty(filter) {
-  const key = filter === 'current'
-    ? 'employee.requests_empty_current'
-    : 'employee.requests_empty_free';
-  return `
-    <div class="empty-state empty-state--inline">
-      <i class="ph ph-clipboard"></i>
-      <span class="empty-state-text" data-i18n="${key}">
-        По выбранным фильтрам заявок нет.
-      </span>
     </div>
   `;
 }

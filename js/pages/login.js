@@ -19,6 +19,7 @@ import { requireGuest, toast, errorMessage } from '../auth.js';
 import { t, initI18n, onLangChange, applyTranslations, getLang } from '../i18n.js';
 import { wireFormGuard }                     from '../form-guard.js';
 import { grantPinPass }                      from '../lib/pin-gate.js';
+import { phoneChannelEnabled, loadFeatures } from '../config.js';
 
 // ── Hoisted helpers ─────────────────────────────────────────────
 function q(sel) { return document.querySelector(sel); }
@@ -213,7 +214,8 @@ function wireDigitBoxes(inputs, { onSubmit } = {}) {
 // BOOT
 // ─────────────────────────────────────────────────────────────────
 (async () => {
-  try { await initI18n(); } catch (e) { console.error('[login] i18n failed:', e); }
+  try { await Promise.all([initI18n(), loadFeatures()]); }
+  catch (e) { console.error('[login] init failed:', e); }
 
   // requireGuest redirects (asynchronously via location.href) if a token
   // is already in localStorage. Returning early prevents the brief flash
@@ -221,6 +223,17 @@ function wireDigitBoxes(inputs, { onSubmit } = {}) {
   if (!requireGuest()) return;
 
   getDeviceId().catch(() => {});
+
+  // Пока SMS не подключён — вход только по email: подпись поля без «или
+  // телефон» (плейсхолдер оставляем общий, бэкенд примет любой контакт у
+  // тех, у кого телефон уже привязан). Логику не режем.
+  if (!phoneChannelEnabled()) {
+    const lbl = document.querySelector('[data-i18n="auth.login.contact_label"]');
+    if (lbl) lbl.setAttribute('data-i18n', 'auth.login.contact_label_email');
+    const ph = document.querySelector('#contact[data-i18n-ph]');
+    if (ph) ph.setAttribute('data-i18n-ph', 'auth.login.contact_ph_email');
+    applyTranslations();
+  }
 
   // Re-translate visible alerts/field errors on language change.
   onLangChange(() => applyTranslations());

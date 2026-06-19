@@ -31,6 +31,7 @@ let _isOwner = false;
 let _editId = null;
 let _deleteId = null;
 let _step = 1;
+let _eqReloadTimer = null;        // debounce для socket-перезагрузки техники
 // Фото: file/mediaId — новый загруженный; previewUrl — object-URL для превью.
 const _photo = { file: null, mediaId: null, previewUrl: null };
 let _photoDoc = null;   // doc-preview контроллер фото техники
@@ -421,7 +422,12 @@ function wireSocketOnce() {
   window.__remsEquipmentSocketWired = true;
   socketOn('equipment:changed', () => {
     // Любое изменение в орг — перезагружаем список, если он на экране.
-    if (document.querySelector('#team-equipment-body')) loadEquipment();
+    // Дебаунс 250мс: статус техники синхронизируется при создании/закрытии
+    // заявок (события идут пачками) — без дебаунса был бы полный перезапрос
+    // реестра на каждое.
+    if (!document.querySelector('#team-equipment-body')) return;
+    clearTimeout(_eqReloadTimer);
+    _eqReloadTimer = setTimeout(() => { loadEquipment().catch?.(() => {}); }, 250);
   });
 }
 

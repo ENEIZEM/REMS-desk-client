@@ -136,6 +136,19 @@ body[data-role="solo"]     [data-role-only="employee"] {
   gap: var(--space-6);
   align-items: stretch;
 }
+/* Рабочая зона «лента | уведомления»: лента шире уведомлений (единые
+   пропорции для руководителя и сотрудника). На узких экранах — стопкой. */
+.rq-work-cols { grid-template-columns: 1.7fr 1fr; }
+@media (max-width: 960px) { .rq-work-cols { grid-template-columns: 1fr; } }
+/* Высота ленты рабочего стола — АДАПТИВНА под экран (а не фикс 60vh): тело
+   ленты заполняет остаток вьюпорта (минус навбар/шапка/плитки/команда),
+   скролл — ВНУТРИ. Колонка уведомлений absolute-fill подстраивается под неё.
+   Скоупим на .rq-work-feed, чтобы не задеть ленты team-вкладок. */
+.rq-work-feed .requests-feed-body { max-height: calc(100vh - 22rem); min-height: 12rem; }
+@media (max-width: 960px) {
+  /* На мобиле колонки стопкой — фикс-кап, чтобы лента не занимала весь экран. */
+  .rq-work-feed .requests-feed-body { max-height: 60vh; }
+}
 .solo-col-left,
 .employee-col-left {
   display: flex;
@@ -514,10 +527,14 @@ body[data-role="solo"]     [data-role-only="employee"] {
 /* Подсказки кнопок контракта — СНИЗУ (у верхней карточки списка верхняя
    подсказка уходила под заголовок блока и была не видна). */
 .contract-card [data-ct-tip]::after { bottom: auto; top: calc(100% + 0.4rem); }
-.contract-card:not(.contract-card--terminated):hover {
-  border-color: var(--clr-navy);
+/* Hover-обводка совпадает по цвету с левой полосой состояния:
+   действующий — акцент (зелёный), на рассмотрении — янтарь. */
+.contract-card:not(.contract-card--awaiting):not(.contract-card--terminated):hover {
+  border-color: var(--clr-accent);
   box-shadow: 0 5px 16px rgba(15, 23, 42, 0.07);
 }
+.contract-card--awaiting:hover { border-color: var(--clr-warning, #f59e0b); }
+.contract-card--terminated:hover { border-color: #94a3b8; box-shadow: 0 5px 16px rgba(15, 23, 42, 0.05); }
 .contract-card--terminated { opacity: 0.85; background: var(--clr-bg-subtle); }
 /* Серая полоса — как у завершённой заявки (slate), не акцентно-зелёная. */
 .contract-card--terminated::before {
@@ -859,6 +876,124 @@ body[data-role="solo"]     [data-role-only="employee"] {
 
 .profile-card-body.requests-feed-body { display: flex; flex-direction: column; gap: 0.6rem; }
 
+/* ── Плитки-KPI (фильтры) над лентой ──────────────────────────────── */
+.rq-tiles-row { margin-top: 1rem; }
+.rq-tiles-row .rq-tiles { margin-bottom: 0; }
+.rq-tiles { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.85rem; }
+
+/* ── Под-фильтры над лентой: тип заявки │ период │ команда ──────────
+   Группы разделены вертикальными линиями (border-left у не-первой).
+   Каждая группа переносится целиком (flex-wrap на контейнере). */
+.rq-subfilters {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1rem;
+  margin-top: 0.85rem;
+}
+.rq-subfilter-group { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; }
+.rq-subfilter-group:not(:first-child) {
+  padding-left: 1rem; border-left: 1px solid var(--clr-border);
+}
+.rq-subfilter-team { flex: 1 1 auto; }
+
+/* Сегмент «Тип заявки» (Все/Внутренние/Партнёрские) со счётчиками. */
+.rq-scope-seg { display: inline-flex; flex-wrap: wrap; gap: 0.3rem; }
+.rq-scope-chip {
+  display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer;
+  padding: 0.3rem 0.6rem; border: 1px solid var(--clr-border); border-radius: 999px;
+  background: var(--clr-surface); font-size: 0.74rem; color: var(--clr-text-primary);
+  transition: border-color var(--trans-fast), background var(--trans-fast);
+}
+.rq-scope-chip:hover { border-color: var(--clr-navy); }
+.rq-scope-chip.is-active { border-color: var(--clr-navy); background: var(--clr-bg-muted, #f1f5f9); }
+.rq-scope-chip:focus-visible { outline: 2px solid var(--clr-navy); outline-offset: 1px; }
+.rq-scope-count { font-weight: 700; color: var(--clr-text-secondary); font-variant-numeric: tabular-nums; }
+
+/* Выпадающий период в под-фильтрах: вращающаяся стрелка-каретка
+   (как у заголовков групп заявок) — поворот при открытом меню. */
+.rq-subfilter-period .picker-caret { transition: transform var(--trans-fast); }
+.rq-subfilter-period .period-picker:has(.picker-menu:not([hidden])) .picker-caret { transform: rotate(180deg); }
+
+/* ── SLA-матрица (Организация): приоритет × реакция/устранение ─────── */
+.sla-matrix { width: 100%; border-collapse: collapse; }
+.sla-matrix th {
+  text-align: left; font-size: 0.72rem; font-weight: 600; color: var(--clr-text-secondary);
+  text-transform: uppercase; letter-spacing: 0.03em; padding: 0.35rem 0.5rem 0.7rem;
+  border-bottom: 1px solid var(--clr-border);
+}
+.sla-matrix th:not(:first-child), .sla-matrix td:not(:first-child) { text-align: right; }
+.sla-matrix td { padding: 0.85rem 0.5rem; border-bottom: 1px solid var(--clr-border); font-variant-numeric: tabular-nums; }
+.sla-matrix tbody tr:last-child td { border-bottom: none; }
+.sla-matrix tbody tr:hover { background: var(--clr-bg-subtle, #f8fafc); }
+.sla-matrix .profile-row-edit-wrap { display: inline-flex; align-items: center; gap: 0.35rem; justify-content: flex-end; }
+
+/* ── Панель «Команда» (workload руководителя) ─────────────────────── */
+.rq-team-wrap { margin-top: 0.6rem; }
+.rq-team-strip { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.rq-team-chip {
+  display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer;
+  padding: 0.3rem 0.6rem; border: 1px solid var(--clr-border); border-radius: 999px;
+  background: var(--clr-surface); font-size: 0.74rem; transition: border-color var(--trans-fast), background var(--trans-fast);
+}
+.rq-team-chip:hover { border-color: var(--clr-navy); }
+.rq-team-chip.is-active { border-color: var(--clr-navy); background: var(--clr-bg-muted, #f1f5f9); }
+.rq-team-name { color: var(--clr-text-primary); }
+.rq-team-load { font-weight: 700; color: var(--clr-text-secondary); font-variant-numeric: tabular-nums; }
+.rq-team-over {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 1.05rem; height: 1.05rem;
+  padding: 0 0.25rem; border-radius: 999px; background: var(--clr-error-light); color: #b91c1c;
+  font-size: 0.62rem; font-weight: 700;
+}
+
+/* Доступность клавиатурой: фокус-кольца на интерактивных плитках/чипах/секциях
+   (ui-ux-pro-max: focus-states, keyboard-nav). */
+.rq-tile:focus-visible,
+.rq-team-chip:focus-visible { outline: 2px solid var(--clr-navy); outline-offset: 1px; }
+.rq-section > summary:focus-visible { outline: 2px solid var(--clr-navy); outline-offset: 1px; }
+
+/* prefers-reduced-motion: гасим анимации/переходы UI заявок
+   (ui-ux-pro-max: reduced-motion — обязательная поддержка). */
+@media (prefers-reduced-motion: reduce) {
+  .request-card, .request-card.rq-flash, .rq-tile, .rq-team-chip,
+  .rq-section-caret, .rq-due, .rq-updated {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+.rq-tile {
+  flex: 1 1 0; min-width: 5rem; display: flex; flex-direction: column; gap: 0.05rem;
+  align-items: flex-start; padding: 0.5rem 0.7rem; cursor: pointer; text-align: left;
+  background: var(--clr-surface); border: 1px solid var(--clr-border); border-radius: var(--radius-md);
+  transition: border-color var(--trans-fast), background var(--trans-fast);
+}
+.rq-tile:hover { border-color: var(--clr-navy); }
+.rq-tile.is-active { border-color: var(--clr-navy); background: var(--clr-bg-muted, #f1f5f9); }
+.rq-tile-count { font-size: 1.15rem; font-weight: 700; color: var(--clr-text-primary); font-variant-numeric: tabular-nums; }
+.rq-tile-label { font-size: 0.66rem; color: var(--clr-text-secondary); text-transform: uppercase; letter-spacing: 0.02em; }
+.rq-tile--danger .rq-tile-count { color: #b91c1c; }
+.rq-tile--danger.is-active { border-color: #ef4444; background: var(--clr-error-light); }
+/* Метрика-плитка (оценка) — не фильтр: без hover-аффорданса. */
+.rq-tile--metric { cursor: default; }
+.rq-tile--metric:hover { border-color: var(--clr-border); }
+.rq-tile-star { color: #f59e0b; font-size: 0.85em; margin-left: 0.15rem; vertical-align: baseline; }
+
+/* ── Сегментированная лента: сворачиваемые секции по смыслу ────────── */
+.rq-section { border: none; }
+.rq-section + .rq-section { margin-top: 0.2rem; }
+.rq-section > summary {
+  list-style: none; cursor: pointer; user-select: none;
+  display: flex; align-items: center; gap: 0.4rem;
+  padding: 0.35rem 0.1rem; font-size: 0.72rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.03em; color: var(--clr-text-secondary);
+}
+.rq-section > summary::-webkit-details-marker { display: none; }
+.rq-section-caret { font-size: 0.85rem; transition: transform var(--trans-fast); }
+.rq-section[open] .rq-section-caret { transform: rotate(90deg); }
+.rq-section-count {
+  background: var(--clr-bg-muted, #f1f5f9); color: var(--clr-text-secondary);
+  border-radius: 999px; padding: 0 0.45rem; font-size: 0.7rem; font-weight: 600;
+}
+.rq-section-body { display: flex; flex-direction: column; gap: 0.6rem; padding: 0.15rem 0 0.5rem; }
+
 /* ── Карточка заявки: статус-тон через CSS-переменные ─────────────
    --rq-tone      — насыщенный цвет (полоса слева, акценты)
    --rq-tone-soft — пастельная подложка (иконка-тайл)
@@ -881,16 +1016,64 @@ body[data-role="solo"]     [data-role-only="employee"] {
   border: 1px solid var(--clr-border); border-radius: var(--radius-md);
   transition: border-color var(--trans-fast), box-shadow var(--trans-fast), transform var(--trans-fast);
 }
+/* Левая кромка = КАНАЛ СРОЧНОСТИ (единственный «горячий» сигнал). */
 .request-card::before {
   content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
-  background: var(--rq-tone, var(--clr-border));
+  background: var(--rq-urg, var(--clr-border));
 }
 .request-card:hover, .request-card:focus-visible {
-  border-color: var(--rq-tone, var(--clr-navy));
+  border-color: var(--rq-urg, var(--clr-navy));
   box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
   transform: translateY(-1px);
   outline: none;
 }
+
+/* ── Срочность: кромка + пилл остатка времени ─────────────────────── */
+.rq-urg-overdue { --rq-urg: var(--clr-error, #ef4444); }
+.rq-urg-soon    { --rq-urg: #f59e0b; }
+.rq-urg-ok      { --rq-urg: #cbd5e1; }
+.rq-urg-none    { --rq-urg: var(--clr-border); }
+.rq-due {
+  display: inline-flex; align-items: center; gap: 0.25rem; white-space: nowrap;
+  font-size: 0.7rem; font-weight: 600; padding: 0.18rem 0.55rem; border-radius: var(--radius-md);
+}
+.rq-due-overdue { background: var(--clr-error-light); color: #b91c1c; }
+.rq-due-soon    { background: #fef3c7; color: #b45309; }
+.rq-due-ok      { background: transparent; color: var(--clr-text-secondary); font-weight: 500; padding-left: 0; }
+
+/* ── Статус: тихая точка-категория + текст-метка ──────────────────── */
+.rq-dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; flex: none; background: #94a3b8; }
+.rq-dot-new         { background: #22c55e; }   /* свободна — зелёная */
+.rq-dot-done        { background: #3b82f6; }   /* готова — синяя */
+.rq-dot-assigned,
+.rq-dot-in_progress { background: #64748b; }   /* в работе — нейтральная */
+.rq-dot-closed,
+.rq-dot-cancelled   { background: #cbd5e1; }
+.rq-status-label { font-size: 0.7rem; color: var(--clr-text-secondary); white-space: nowrap; }
+
+/* Индикатор «обновлено» — заявка изменилась с последнего просмотра. */
+.rq-updated {
+  display: inline-flex; align-items: center; gap: 0.22rem; white-space: nowrap;
+  font-size: 0.66rem; font-weight: 600; padding: 0.15rem 0.5rem; border-radius: var(--radius-md);
+  color: #1d4ed8; background: #dbeafe;
+}
+.request-card--updated { border-color: color-mix(in srgb, #2563eb 35%, var(--clr-border)); }
+
+/* Подсветка карточки при переходе из уведомления (мигающее кольцо). */
+@keyframes rqFlash {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--clr-navy) 0%, transparent); }
+  12%  { box-shadow: 0 0 0 3px color-mix(in srgb, var(--clr-navy) 45%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--clr-navy) 0%, transparent); }
+}
+.request-card.rq-flash { animation: rqFlash 2.1s ease-out; border-color: var(--clr-navy); }
+
+/* Панель документа в просмотрщике вложений (не-инлайнируемые типы). */
+.media-viewer-doc {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 0.9rem; padding: 2.5rem 1rem; text-align: center;
+}
+.media-viewer-doc-ico { font-size: 3.5rem; color: var(--clr-navy); }
+.media-viewer-doc-name { font-size: var(--text-sm); color: var(--clr-text-secondary); word-break: break-word; max-width: 28rem; }
 .request-card-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
 .request-card-id { display: inline-flex; align-items: center; gap: 0.5rem; min-width: 0; }
 .request-card-status-ico {

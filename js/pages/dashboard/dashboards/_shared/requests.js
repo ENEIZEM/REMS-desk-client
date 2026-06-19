@@ -20,8 +20,8 @@ import { refreshCharCounters } from '../../../../lib/char-counter.js';
 import { openMediaViewer } from '../../../../lib/media-viewer.js';
 import { wireDocPreview } from '../../../../lib/doc-preview.js';
 import {
-  requestListHTML, historyHTML, statusBadge, priorityBadge,
-  statusLabel, escapeHTML,
+  requestListHTML, requestCardHTML, historyHTML, statusBadge, priorityBadge,
+  statusLabel, escapeHTML, slaRemainingMs, urgencyOf, markRequestSeen, setRequestViewer,
 } from './requests-ui.js';
 import { statusBadge as eqStatusBadge } from './equipment-ui.js';
 
@@ -56,6 +56,7 @@ export function periodStart(period) {
 let _eqCache = null, _contractCache = null;
 let _editId = null;
 let _roadmapId = null;        // открытая в дорожной карте заявка
+let _reloadTimer = null;      // debounce для socket-перезагрузки ленты
 let _finishFiles = [];        // [{file, mediaId}] — вложения при завершении
 let _createFiles = [];        // [{file, mediaId}] — вложения при создании
 let _priority = 'medium';     // выбранный приоритет (pill)
@@ -70,7 +71,12 @@ export async function mountRequests(profile) {
   _selfId  = profile?.user?.id ?? null;
   _myOrgId = profile?.organization?.id ?? profile?.user?.organization_id ?? null;
   _isOwner = (profile?.user?.org_role || profile?.user?.role) === 'owner';
+  setRequestViewer(_selfId);
   wireOnce();
+  // Deep-link/возврат на #overview/<id> | #requests/<id> — подсветим
+  // карточку после загрузки (лента у owner на Обзоре, у employee на Заявках).
+  const m = (location.hash || '').match(/#(?:overview|requests)\/(\d+)/);
+  if (m) _pendingFocusId = Number(m[1]);
   await loadRequests();
 }
 
@@ -96,22 +102,240 @@ function filterFor(name) {
   return _requests; // all
 }
 
+// Подсветка целевой карточки при переходе из уведомления (#requests/<id>).
+// Одноразовый pending-id: ставится переходом, гасится после применения —
+// чтобы не мигать на каждом socket-ре-рендере.
+let _pendingFocusId = null;
+export function focusRequest(id) {
+  const n = Number(id);
+  if (!Number.isInteger(n) || n <= 0) return;
+  _pendingFocusId = n;
+  applyFocus();
+}
+function applyFocus() {
+  if (_pendingFocusId == null) return;
+  const card = document.querySelector(`.request-card[data-rq-open="${_pendingFocusId}"]`);
+  if (!card) return; // ещё не отрендерено — применим в следующем renderAll
+  card.closest('details')?.setAttribute('open', ''); // раскрыть свёрнутую секцию (Архив)
+  const smooth = !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  card.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'center' });
+  card.classList.remove('rq-flash'); void card.offsetWidth; card.classList.add('rq-flash');
+  setTimeout(() => card.classList.remove('rq-flash'), 2200);
+  _pendingFocusId = null;
+}
+
+// Состав команды для панели нагрузки (workload). Передаёт owner-оркестратор
+// после загрузки участников (setRequestTeam); если не задан — выводим из
+// самих заявок (assignee_name). Только для руководителя.
+let _members = [];
+export function setRequestTeam(members) { _members = Array.isArray(members) ? members : []; renderAll(); }
+
 export function renderAll() {
-  document.querySelectorAll('[data-requests-list]').forEach(el => {
-    // Завершённые/отменённые — всегда внизу списка любого фильтра
-    // (stable sort сохраняет порядок по дате внутри каждой группы).
-    const isTerminal = (r) => (r.status === 'closed' || r.status === 'cancelled') ? 1 : 0;
-    const list = [...filterFor(el.dataset.rqFilter || 'all')].sort((a, b) => isTerminal(a) - isTerminal(b));
-    el.innerHTML = requestListHTML(list);
-    // Мини-превью вложений последнего статуса (приватные изображения).
-    loadAttachmentThumbs(el);
-    // счётчик рядом (если есть)
-    const card = el.closest('.card');
-    const cnt = card?.querySelector('[data-requests-count]');
-    if (cnt) cnt.textContent = String(list.length);
+  const ctx = { selfId: Number(_selfId), myOrgId: Number(_myOrgId), isOwner: _isOwner };
+
+  // Сегментированные ленты: плитки и «Команда» рендерятся в ОТДЕЛЬНЫЕ
+  // контейнеры (data-rq-tiles / data-rq-team), связанные по имени фильтра.
+  // Состояние на самой ленте: data-rq-quick (плитка), data-rq-team-emp (сотрудник).
+  document.querySelectorAll('[data-requests-list][data-rq-segmented]').forEach(feed => {
+    const name    = feed.dataset.rqFilter || 'all';
+    const quick   = feed.dataset.rqQuick || 'all';
+    const scope   = feed.dataset.rqScope || 'all';   // тип: all|internal|partner
+    // Линза «сотрудник» — МНОЖЕСТВЕННЫЙ выбор (csv id в data-rq-team-emp);
+    // пусто = все. Скоупит ВСЁ: и плитки, и ленту.
+    const teamSet = new Set((feed.dataset.rqTeamEmp || '').split(',').filter(Boolean));
+    const periodBase = [...filterFor(name)];                      // период (registered filter)
+    const scopedBase = scope === 'all' ? periodBase
+      : periodBase.filter(r => scope === 'internal' ? r.is_internal : !r.is_internal);
+    const teamBase = teamSet.size
+      ? scopedBase.filter(r => teamSet.has(String(r.assigned_to_id)) || teamSet.has(String(r.author_id)))
+      : scopedBase;
+    feed.innerHTML = segmentedHTML(applyQuickFilter(teamBase, ctx, quick), ctx);
+    loadAttachmentThumbs(feed);
+    const scopeEl = document.querySelector(`[data-rq-scope="${name}"]`);
+    if (scopeEl) scopeEl.innerHTML = scopeBarHTML(periodBase, scope);
+    const tilesEl = document.querySelector(`[data-rq-tiles="${name}"]`);
+    if (tilesEl) tilesEl.innerHTML = tilesHTML(teamBase, ctx, quick);
+    const teamEl = document.querySelector(`[data-rq-team="${name}"]`);
+    if (teamEl) teamEl.innerHTML = teamHTML(scopedBase, teamSet);
+    const cnt = feed.closest('.card')?.querySelector('[data-requests-count]');
+    if (cnt) cnt.textContent = String(teamBase.length);
   });
+
+  // Плоские (несегментированные) ленты — прежнее поведение.
+  document.querySelectorAll('[data-requests-list]:not([data-rq-segmented])').forEach(el => {
+    const base = [...filterFor(el.dataset.rqFilter || 'all')];
+    const isTerminal = (r) => (r.status === 'closed' || r.status === 'cancelled') ? 1 : 0;
+    el.innerHTML = requestListHTML([...base].sort((a, b) => isTerminal(a) - isTerminal(b)));
+    loadAttachmentThumbs(el);
+    const cnt = el.closest('.card')?.querySelector('[data-requests-count]');
+    if (cnt) cnt.textContent = String(base.length);
+  });
+
   // Подписчики (статистика на overview-вкладках и т.п.).
   _updateListeners.forEach((cb) => { try { cb(_requests); } catch (e) { console.warn('[requests listener]', e); } });
+  // Применить отложенную подсветку целевой карточки (если ждали рендера).
+  applyFocus();
+}
+
+/**
+ * Панель «Команда» (workload) для руководителя: по каждому сотруднику —
+ * активные назначенные + просроченные, клик = фильтр ленты по сотруднику.
+ * Источник имён: переданный состав (_members) ∪ исполнители из заявок.
+ * scopeBase — заявки после охвата/периода (но ДО линзы сотрудника).
+ */
+function teamHTML(scopeBase, activeSet) {
+  const terminal = (r) => r.status === 'closed' || r.status === 'cancelled';
+  const stat = new Map(); // empId → { name, active, overdue }
+  const ensure = (id, name) => {
+    const k = String(id);
+    if (!stat.has(k)) stat.set(k, { id: k, name: name || ('#' + k), active: 0, overdue: 0 });
+    const s = stat.get(k); if (name && s.name.startsWith('#')) s.name = name; return s;
+  };
+  for (const m of _members) if (m && m.id != null) ensure(m.id, m.full_name || m.name);
+  for (const r of scopeBase) {
+    if (r.assigned_to_id == null || terminal(r)) continue;
+    if (r.status !== 'assigned' && r.status !== 'in_progress') continue;
+    const s = ensure(r.assigned_to_id, r.assignee_name);
+    s.active++;
+    if (slaRemainingMs(r) < 0) s.overdue++;
+  }
+  const rows = [...stat.values()].sort((a, b) => b.active - a.active);
+  const chip = (id, label, active, overdue, isActive) => `
+    <button type="button" class="rq-team-chip${isActive ? ' is-active' : ''}" data-rq-team-pick="${id}">
+      <span class="rq-team-name">${escapeHTML(label)}</span>
+      <span class="rq-team-load">${active}</span>
+      ${overdue ? `<span class="rq-team-over" title="${escapeHTML(t('requests.tile.overdue'))}">${overdue}</span>` : ''}
+    </button>`;
+  const allChip = chip('', t('requests.tile.all'), scopeBase.filter(r => !terminal(r)).length, 0, activeSet.size === 0);
+  const empChips = rows.map(s => chip(s.id, s.name, s.active, s.overdue, activeSet.has(s.id))).join('');
+  return `<div class="rq-team-strip">${allChip}${empChips}</div>`;
+}
+
+/** Сегмент «Тип заявки» со счётчиками (Все/Внутренние/Партнёрские).
+ *  active — текущий тип. Считается по периодному набору (до фильтра типа). */
+function scopeBarHTML(periodBase, active) {
+  let internal = 0, partner = 0;
+  for (const r of periodBase) r.is_internal ? internal++ : partner++;
+  const chip = (id, key, count) => `
+    <button type="button" class="rq-scope-chip${active === id ? ' is-active' : ''}" data-rq-scope-pick="${id}">
+      <span data-i18n="${key}">${escapeHTML(t(key))}</span>
+      <span class="rq-scope-count">${count}</span>
+    </button>`;
+  return `<div class="rq-scope-seg">
+    ${chip('all', 'employee.req_scope_all', periodBase.length)}
+    ${chip('internal', 'employee.req_scope_internal', internal)}
+    ${chip('partner', 'employee.req_scope_partner', partner)}
+  </div>`;
+}
+
+/**
+ * Сегментированная лента (редизайн 2026-06): вместо плоской кучи —
+ * сворачиваемые секции в порядке приоритета внимания. Чистая функция
+ * (list + ctx), без состояния модуля — тестируется отдельно.
+ *
+ *   1. Требуют действия — назначенные мне активные (исполнитель) + готовые
+ *      к приёмке мной (автор / владелец-заказчик). Сортировка по срочности.
+ *   2. Свободный пул — new в моей орг-исполнителе (можно взять).
+ *   3. В работе — прочие активные.
+ *   4. Архив — закрытые/отменённые (свёрнут по умолчанию).
+ *
+ * Заодно чинит «фокус при взятии»: взятая заявка не исчезает, а переезжает
+ * из «Свободного пула» в «Требуют действия» — остаётся на виду.
+ */
+// Классификация заявки в секцию (общая для ленты, плиток и быстрых
+// фильтров): 'action' | 'free' | 'wip' | 'archive'.
+export function classifyRequest(r, ctx) {
+  if (r.status === 'closed' || r.status === 'cancelled') return 'archive';
+  const mineAssignee = Number(r.assigned_to_id) === ctx.selfId;
+  const mineAuthor   = Number(r.author_id) === ctx.selfId;
+  const awaitingMe = r.status === 'done' && (mineAuthor || (ctx.isOwner && Number(r.client_org_id) === ctx.myOrgId));
+  const myActive   = mineAssignee && (r.status === 'assigned' || r.status === 'in_progress');
+  if (awaitingMe || myActive) return 'action';
+  if (r.status === 'new' && Number(r.contractor_org_id) === ctx.myOrgId) return 'free';
+  return 'wip';
+}
+
+export function segmentedHTML(list, ctx) {
+  const action = [], free = [], wip = [], archive = [];
+  for (const r of list) {
+    const c = classifyRequest(r, ctx);
+    (c === 'action' ? action : c === 'free' ? free : c === 'archive' ? archive : wip).push(r);
+  }
+  const byUrgency = (a, b) => slaRemainingMs(a) - slaRemainingMs(b);
+  action.sort(byUrgency); free.sort(byUrgency); wip.sort(byUrgency);
+
+  const section = (key, items, open) => items.length
+    ? `<details class="rq-section" ${open ? 'open' : ''}>
+         <summary class="rq-section-head">
+           <i class="ph ph-caret-right rq-section-caret"></i>
+           <span data-i18n="requests.section.${key}">${escapeHTML(t('requests.section.' + key))}</span>
+           <span class="rq-section-count">${items.length}</span>
+         </summary>
+         <div class="rq-section-body">${items.map(requestCardHTML).join('')}</div>
+       </details>`
+    : '';
+
+  const html = [
+    section('action',  action,  true),
+    section('free',    free,    true),
+    section('wip',     wip,     true),
+    section('archive', archive, false),
+  ].join('');
+  return html || requestListHTML([]); // пустой список → общий empty-state
+}
+
+/**
+ * Плитки-KPI над лентой: ключевые счётчики (видны сразу, без прокрутки) и
+ * одновременно быстрые фильтры. Считаются по ПОЛНОМУ списку (не зависят от
+ * активного фильтра). «Просрочено» — кросс-срез, которого секции не дают.
+ */
+export function tilesHTML(base, ctx, active) {
+  let action = 0, free = 0, archive = 0, overdue = 0;
+  // Оценки: руководителю — работа орг (исполнитель = его орг), сотруднику —
+  // его собственная (исполнитель = он). Раздельно внутренние / по контрактам.
+  let sumI = 0, cntI = 0, sumP = 0, cntP = 0;
+  const ratedToViewer = (r) => ctx.isOwner
+    ? Number(r.contractor_org_id) === ctx.myOrgId
+    : Number(r.assigned_to_id) === ctx.selfId;
+  for (const r of base) {
+    const c = classifyRequest(r, ctx);
+    if (c === 'action') action++; else if (c === 'free') free++; else if (c === 'archive') archive++;
+    if (slaRemainingMs(r) < 0) overdue++;
+    if (r.status === 'closed' && r.rating != null && ratedToViewer(r)) {
+      if (r.is_internal) { sumI += Number(r.rating); cntI++; }
+      else               { sumP += Number(r.rating); cntP++; }
+    }
+  }
+  const avg = (s, n) => n ? (s / n).toFixed(1) : null;
+  const tile = (id, count, danger) => `
+    <button type="button" class="rq-tile${active === id ? ' is-active' : ''}${danger ? ' rq-tile--danger' : ''}" data-rq-tile="${id}">
+      <span class="rq-tile-count">${count}</span>
+      <span class="rq-tile-label" data-i18n="requests.tile.${id}">${escapeHTML(t('requests.tile.' + id))}</span>
+    </button>`;
+  // Метрика-плитка (НЕ фильтр: без data-rq-tile → клик не ловится).
+  const metric = (id, val) => `
+    <div class="rq-tile rq-tile--metric">
+      <span class="rq-tile-count">${val != null ? `${escapeHTML(val)}<i class="ph-fill ph-star rq-tile-star" aria-hidden="true"></i>` : '—'}</span>
+      <span class="rq-tile-label" data-i18n="requests.tile.${id}">${escapeHTML(t('requests.tile.' + id))}</span>
+    </div>`;
+  return `<div class="rq-tiles">
+    ${tile('all', base.length, false)}
+    ${tile('action', action, false)}
+    ${tile('free', free, false)}
+    ${tile('overdue', overdue, true)}
+    ${tile('archive', archive, false)}
+    ${metric('rating_internal', avg(sumI, cntI))}
+    ${metric('rating_partner', avg(sumP, cntP))}
+  </div>`;
+}
+
+/** Быстрый фильтр (плитка) — сужает список ПЕРЕД сегментацией. */
+function applyQuickFilter(base, ctx, active) {
+  if (active === 'overdue') return base.filter(r => slaRemainingMs(r) < 0);
+  if (active === 'action' || active === 'free' || active === 'archive') {
+    return base.filter(r => classifyRequest(r, ctx) === active);
+  }
+  return base; // 'all'
 }
 
 /* ── Caches for the create modal ───────────────────────────────── */
@@ -433,6 +657,10 @@ async function openRoadmap(id) {
 function renderRoadmap(data) {
   const r = data.request;
   _requests = _requests.map(x => Number(x.id) === Number(r.id) ? r : x); // keep cache fresh
+  // Открыли карту (или вернулись после своего действия) → заявка «просмотрена»
+  // на её текущем updated_at: гасим индикатор «обновлено» и в ленте.
+  markRequestSeen(r.id, r.updated_at);
+  renderAll();
   const numEl = document.querySelector('#rrm-number'); if (numEl) numEl.textContent = r.request_number;
   // Подзаголовок = стороны заявки текстом: «Внутренняя · org» либо
   // «По контракту · org1 → org2».
@@ -465,12 +693,28 @@ function renderRoadmap(data) {
   const ratingVal = r.rating
     ? `<span class="rrm-sum-stars">${'<i class="ph-fill ph-star"></i>'.repeat(r.rating)}${'<i class="ph ph-star"></i>'.repeat(5 - r.rating)}</span>`
     : '';
-  // Сводка: техника · срок · оценка. Стороны переехали в подзаголовок,
+  // SLA-строка дорожной карты: активный час (отклик пока new / решение в
+  // работе) + дедлайн + цветной остаток (или просрочено). Для терминальных
+  // показываем исходный срок решения справочно (без пилла).
+  const dl = (iso) => escapeHTML(new Date(iso).toLocaleString(getLang() === 'en' ? 'en-US' : 'ru-RU',
+    { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }));
+  const u = urgencyOf(r);
+  const pill = (lvl, text) => `<span class="rq-due rq-due-${lvl}" style="margin-left:.4rem;"><i class="ph ${lvl === 'overdue' ? 'ph-alarm' : 'ph-clock'}"></i> ${escapeHTML(text)}</span>`;
+  let slaItem = '';
+  if (r.status === 'new' && r.response_due) {
+    slaItem = sumItem('ph-clock-countdown', 'requests.sla_response', `${dl(r.response_due)}${u.level !== 'none' ? pill(u.level, u.text) : ''}`, { wide: true });
+  } else if ((r.status === 'assigned' || r.status === 'in_progress') && r.due_date) {
+    slaItem = sumItem('ph-clock-countdown', 'requests.sla_resolution', `${dl(r.due_date)}${u.level !== 'none' ? pill(u.level, u.text) : ''}`, { wide: true });
+  } else if (r.due_date) {
+    slaItem = sumItem('ph-calendar', 'requests.sum_due', dl(r.due_date), { wide: true });
+  }
+
+  // Сводка: техника · SLA · оценка. Стороны переехали в подзаголовок,
   // заказчик/исполнитель — в чипы событий истории.
   document.querySelector('#rrm-summary').innerHTML = `
     <div class="rrm-sum-grid">
       ${sumItem(eqIcon, 'requests.sum_equipment', eqVal, { titleText: r.equipment ? eqVal.replace(/&[a-z]+;/g, '') : '' })}
-      ${r.due_date ? sumItem('ph-calendar', 'requests.sum_due', escapeHTML(new Date(r.due_date).toLocaleDateString(getLang() === 'en' ? 'en-US' : 'ru-RU'))) : ''}
+      ${slaItem}
       ${ratingVal ? sumItem('ph-star', 'requests.sum_rating', ratingVal) : ''}
     </div>`;
 
@@ -681,6 +925,9 @@ function wireOnce() {
   if (window.__remsRequestsWired) return;
   window.__remsRequestsWired = true;
 
+  // Переход из уведомления о заявке (#requests/<id>) → подсветить карточку.
+  document.addEventListener('rems:focus-request', (e) => focusRequest(e.detail?.id));
+
   // Тип заявки (radio cards).
   document.querySelectorAll('[data-rq-type]').forEach(card => {
     card.addEventListener('click', () => { if (!card.classList.contains('is-disabled')) selectType(card.dataset.rqType); });
@@ -767,6 +1014,40 @@ function wireOnce() {
   // кликабельной карточки, и closest('[data-rq-open]') иначе перехватил
   // бы клик и открыл дорожную карту вместо просмотрщика.
   document.addEventListener('click', (e) => {
+    // Плитка-фильтр: тоггл быстрого фильтра связанной ленты. Плитки лежат в
+    // отдельном контейнере [data-rq-tiles="<name>"], лента — [data-rq-filter].
+    const tile = e.target.closest?.('[data-rq-tile]');
+    if (tile) {
+      const name = tile.closest('[data-rq-tiles]')?.dataset.rqTiles;
+      const feed = name ? document.querySelector(`[data-requests-list][data-rq-filter="${name}"]`) : null;
+      if (feed) { const id = tile.dataset.rqTile; feed.dataset.rqQuick = (feed.dataset.rqQuick === id ? 'all' : id); renderAll(); }
+      return;
+    }
+    // Сегмент «Тип заявки» (Все/Внутренние/Партнёрские).
+    const scopePick = e.target.closest?.('[data-rq-scope-pick]');
+    if (scopePick) {
+      const name = scopePick.closest('[data-rq-scope]')?.dataset.rqScope;
+      const feed = name ? document.querySelector(`[data-requests-list][data-rq-filter="${name}"]`) : null;
+      if (feed) { feed.dataset.rqScope = scopePick.dataset.rqScopePick; renderAll(); }
+      return;
+    }
+    // Чип «Команда»: МНОЖЕСТВЕННЫЙ выбор сотрудников; «Все» (пустой id) сбрасывает.
+    const teamPick = e.target.closest?.('[data-rq-team-pick]');
+    if (teamPick) {
+      const name = teamPick.closest('[data-rq-team]')?.dataset.rqTeam;
+      const feed = name ? document.querySelector(`[data-requests-list][data-rq-filter="${name}"]`) : null;
+      if (feed) {
+        const id = teamPick.dataset.rqTeamPick;
+        if (!id) { feed.dataset.rqTeamEmp = ''; }            // «Все» → сброс
+        else {
+          const set = new Set((feed.dataset.rqTeamEmp || '').split(',').filter(Boolean));
+          set.has(id) ? set.delete(id) : set.add(id);
+          feed.dataset.rqTeamEmp = [...set].join(',');
+        }
+        renderAll();
+      }
+      return;
+    }
     const attView = e.target.closest?.('[data-rq-att-view]');
     if (attView) { openMediaViewer(Number(attView.dataset.rqAttView), { name: `attachment-${attView.dataset.rqAttView}` }); return; }
     const attOpen = e.target.closest?.('[data-rq-att-open]');
@@ -794,8 +1075,14 @@ function wireOnce() {
   });
 
   // Socket: любое изменение заявки в орг → перезагрузка + обновление карты.
+  // Перезагрузку ленты ДЕБАУНСИМ (250мс): один пользовательский шаг порождает
+  // несколько событий (created обеим сторонам, переходы статуса), а в активной
+  // орг события идут пачками — без дебаунса каждый клиент дёргал бы полный
+  // GET /api/requests на каждое, нагружая бэк и БД. Обновление открытой карты
+  // делаем сразу и точечно (один запрос по id).
   socketOn('requests:changed', async (payload) => {
-    await loadRequests();
+    clearTimeout(_reloadTimer);
+    _reloadTimer = setTimeout(() => { loadRequests().catch(() => {}); }, 250);
     if (_roadmapId && document.querySelector('#request-roadmap-modal')?.classList.contains('open')
         && payload?.requestId && Number(payload.requestId) === Number(_roadmapId)) {
       try { const fresh = await reqApi.get(_roadmapId); renderRoadmap(fresh.data); } catch {}

@@ -21,6 +21,7 @@ import { openModal, closeModal, setLoading, setFieldError } from './ui-helpers.j
 import { initials } from './format.js';
 import { attachLoader } from '../../lib/lazy-loader.js';
 import { q, escapeHTML } from './dom-utils.js';
+import { phoneChannelEnabled } from '../../config.js';
 
 // Current user profile — injected at boot via initMembers().
 let _getProfile = () => null;
@@ -304,6 +305,17 @@ export function initMembers({ getProfile }) {
     button:   '#btn-invite-confirm',
     required: [{ sel: '#invite-contact', kind: 'text' }],
   });
+
+  // Пока SMS не подключён — приглашение только по email (или ID): убираем
+  // «телефон» из подписи поля и подзаголовка. Плейсхолдер уже email@…,
+  // бэкенд по-прежнему принял бы телефон — логику не режем.
+  if (!phoneChannelEnabled()) {
+    const lbl = q('[data-i18n="members.invite_contact_label"]');
+    if (lbl) lbl.setAttribute('data-i18n', 'members.invite_contact_label_email');
+    const sub = q('[data-i18n="members.invite_subtitle"]');
+    if (sub) { sub.setAttribute('data-i18n', 'members.invite_subtitle_email'); sub.textContent = t('members.invite_subtitle_email'); }
+    if (lbl) lbl.textContent = t('members.invite_contact_label_email');
+  }
 
   q('#btn-invite')?.addEventListener('click', () => {
     // Чистим поля от прошлого инвайта и пересчитываем guard, иначе
