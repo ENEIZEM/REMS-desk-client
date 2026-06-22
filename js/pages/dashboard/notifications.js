@@ -171,7 +171,8 @@ function contractColor(n) {
 function requestStatusIcon(n) {
   const a = String(n?.data?.action ?? '');
   if (!a.startsWith('request_')) return null;
-  if (a === 'request_assigned')    return 'ph-hand-grab';
+  if (a === 'request_new_internal' || a === 'request_new_contract') return 'ph-clipboard-text';
+  if (a === 'request_assigned')    return 'ph-hand-grabbing';
   if (a === 'request_in_progress') return 'ph-wrench';
   if (a === 'request_done')        return 'ph-check-circle';
   if (a === 'request_closed')      return 'ph-lock-simple';
@@ -185,6 +186,7 @@ function requestStatusIcon(n) {
 function requestStatusColor(n) {
   const a = String(n?.data?.action ?? '');
   if (!a.startsWith('request_')) return null;
+  if (a === 'request_new_internal' || a === 'request_new_contract') return 'green';
   if (a === 'request_assigned' || a === 'request_in_progress') return 'blue';
   if (a === 'request_done')      return 'amber';
   if (a === 'request_closed')    return 'green';
@@ -232,6 +234,36 @@ function safeFallbackTab() {
 }
 
 /* ── Public API ──────────────────────────────────────────────── */
+
+/**
+ * Есть ли по заявке НЕПРОСМОТРЕННОЕ изменение — для чипа «обновлено» на
+ * карточке заявки. Источник: уведомления с этим request_id, у которых ещё
+ * не выставлен флаг data.request_seen (ставится при открытии дорожной
+ * карты, отдельно от read_at колокольчика). Не зависит от устройства.
+ */
+export function hasUnseenForRequest(requestId) {
+  if (requestId == null) return false;
+  const rid = Number(requestId);
+  return _notifications.some(n =>
+    n.request_id != null && Number(n.request_id) === rid && !(n.data && n.data.request_seen)
+  );
+}
+
+/**
+ * Локально пометить все уведомления по заявке как «просмотренные»
+ * (data.request_seen=true) — чтобы чип погас сразу при открытии карты.
+ * Серверный персист делает GET /requests/:id (detail.get). read_at НЕ
+ * трогаем — прочтение в колокольчике остаётся независимым.
+ */
+export function markRequestSeenLocal(requestId) {
+  if (requestId == null) return;
+  const rid = Number(requestId);
+  _notifications.forEach(n => {
+    if (n.request_id != null && Number(n.request_id) === rid && !(n.data && n.data.request_seen)) {
+      n.data = { ...(n.data || {}), request_seen: true };
+    }
+  });
+}
 
 export async function loadNotificationCount() {
   try {
@@ -680,6 +712,15 @@ export function resolveTitle(n) {
   // статуса заявки) — приводим к строке, иначе .startsWith() кидает
   // TypeError и ломает рендер заголовка всей карточки/тоста.
   if (type === 'status_change' && String(action ?? '').startsWith('contract')) {
+    return t(`notifications.types.${action}`);
+  }
+  // Заявки: status_change + data.action='request_*'. Заголовок по действию,
+  // чтобы «новая/взята/выполнена/закрыта» отличались, а не были одинаково
+  // «Изменён статус заявки». Новая заявка → единый заголовок «Новая заявка».
+  if (type === 'status_change' && String(action ?? '').startsWith('request_')) {
+    if (action === 'request_new_internal' || action === 'request_new_contract') {
+      return t('notifications.types.request_new');
+    }
     return t(`notifications.types.${action}`);
   }
   // Owner-side join_request — дублируем имя заявителя в title.

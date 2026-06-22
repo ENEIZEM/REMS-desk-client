@@ -534,14 +534,22 @@ wireFieldEdit({
   refresh:        () => loadProfile(),
 });
 
+// Контакты для proof-выбора в смене пароля/PIN. Пока SMS-канал выключен
+// (нет провайдера) телефон не должен предлагаться как способ получить код —
+// фильтруем его, чтобы пикер показывал только почту (см. [[sms-capability-flag]]).
+const channelContacts = () =>
+  phoneChannelEnabled()
+    ? _availableContacts
+    : _availableContacts.filter(c => c.type !== 'phone');
+
 wireChangePassword({
-  getAvailableContacts: () => _availableContacts,
+  getAvailableContacts: channelContacts,
   refresh:              () => loadProfile(),
 });
 
 wireChangePin({
   getUserProfile:        () => _userProfile,
-  getAvailableContacts:  () => _availableContacts,
+  getAvailableContacts:  channelContacts,
   refresh:               () => loadProfile(),
 });
 

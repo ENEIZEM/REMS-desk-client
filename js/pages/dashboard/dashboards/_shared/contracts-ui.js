@@ -113,20 +113,26 @@ function statusBadge(c) {
     : `<span class="badge badge-icon badge-info"><i class="ph ph-hourglass"></i><span>${escapeHTML(t('contracts.status_awaiting_partner'))}</span></span>`;
 }
 
-/** SLA как 4 цветных плашки (как в SLA-блоке организации). */
+/** SLA как 4 цветных плашки. В каждой — реакция (⚡) и устранение (🔧). */
 function slaPillsHTML(sla) {
   if (!sla) return '';
+  const h = escapeHTML(t('profile.hours_short'));
+  const respT  = escapeHTML(t('profile.sla_col_response'));    // Реакция
+  const resolT = escapeHTML(t('profile.sla_col_resolution'));  // Устранение
   const items = [
-    ['critical', sla.critical_h, t('profile.sla_critical')],
-    ['high',     sla.high_h,     t('profile.sla_high')],
-    ['medium',   sla.medium_h,   t('profile.sla_medium')],
-    ['low',      sla.low_h,      t('profile.sla_low')],
+    ['critical', sla.critical_h, sla.critical_resolution_h, t('profile.sla_critical')],
+    ['high',     sla.high_h,     sla.high_resolution_h,     t('profile.sla_high')],
+    ['medium',   sla.medium_h,   sla.medium_resolution_h,   t('profile.sla_medium')],
+    ['low',      sla.low_h,      sla.low_resolution_h,      t('profile.sla_low')],
   ];
-  if (items.every(([, v]) => v == null)) return '';
-  return `<div class="sla-pill-row">${items.map(([key, val, label]) => `
+  if (items.every(([, resp, resol]) => resp == null && resol == null)) return '';
+  return `<div class="sla-pill-row">${items.map(([key, resp, resol, label]) => `
     <div class="sla-pill sla-${key}">
       <span class="sla-pill-label">${escapeHTML(label)}</span>
-      <span class="sla-pill-val">${val == null ? '—' : `${val} ${escapeHTML(t('profile.hours_short'))}`}</span>
+      <span class="sla-pill-vals">
+        <span class="sla-pill-val" title="${respT}"><i class="ph ph-lightning"></i>${resp == null ? '—' : `${resp}${h}`}</span>
+        ${resol != null ? `<span class="sla-pill-val" title="${resolT}"><i class="ph ph-wrench"></i>${resol}${h}</span>` : ''}
+      </span>
     </div>`).join('')}</div>`;
 }
 
@@ -269,7 +275,7 @@ export function contractsBlocksHTML(data, canManage) {
       <div class="profile-card-body contract-list">${currentBody}</div>
     </div>
 
-    <div class="card profile-card" style="margin-top:1rem;">
+    <div class="card profile-card" style="margin-top:1.5rem;">
       <div class="profile-card-header profile-card-header--with-actions">
         <div class="profile-card-icon slate"><i class="ph-bold ph-archive"></i></div>
         <h3 class="profile-card-title">${escapeHTML(t('contracts.terminated_block'))}</h3>

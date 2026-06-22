@@ -8,7 +8,8 @@
 
 import { auth, profile }          from '../../../api.js';
 import { toast, errorMessage }    from '../../../auth.js';
-import { t, getLang }             from '../../../i18n.js';
+import { t, getLang, applyTranslations } from '../../../i18n.js';
+import { phoneChannelEnabled }    from '../../../config.js';
 import { wireFormGuard }          from '../../../form-guard.js';
 import {
   openModal, closeModal, setLoading,
@@ -119,6 +120,13 @@ function clearDigits(inputs) { inputs.forEach(i => { i.value = ''; i.classList.r
 
 export function wireChangePin(ctx) {
   Object.assign(_ctx, ctx);
+
+  // SMS выключен → контакт всегда email; убираем «+7…» из плейсхолдера
+  // forgot-поля (см. [[sms-capability-flag]]).
+  if (!phoneChannelEnabled()) {
+    const fc = document.querySelector('#chpin-forgot-contact[data-i18n-ph]');
+    if (fc) { fc.setAttribute('data-i18n-ph', 'profile.full_contact_ph_email'); applyTranslations(); }
+  }
 
   _curInputs = wirePinGroup('#chpin-current');
   _newInputs = wirePinGroup('#chpin-new');

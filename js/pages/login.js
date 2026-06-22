@@ -230,8 +230,15 @@ function wireDigitBoxes(inputs, { onSubmit } = {}) {
   if (!phoneChannelEnabled()) {
     const lbl = document.querySelector('[data-i18n="auth.login.contact_label"]');
     if (lbl) lbl.setAttribute('data-i18n', 'auth.login.contact_label_email');
-    const ph = document.querySelector('#contact[data-i18n-ph]');
-    if (ph) ph.setAttribute('data-i18n-ph', 'auth.login.contact_ph_email');
+    // Все плейсхолдеры с «или +7 999…» → email-only (вход И форма «забыли
+    // пароль» используют один ключ auth.login.contact_ph).
+    document.querySelectorAll('[data-i18n-ph="auth.login.contact_ph"]')
+      .forEach(el => el.setAttribute('data-i18n-ph', 'auth.login.contact_ph_email'));
+    // Подзаголовок/подсказка восстановления пароля упоминают «телефон/номер».
+    const fSub = document.querySelector('[data-i18n="auth.forgot.subtitle_contact"]');
+    if (fSub) fSub.setAttribute('data-i18n', 'auth.forgot.subtitle_contact_email');
+    const fHint = document.querySelector('[data-i18n="auth.forgot.contact_hint"]');
+    if (fHint) fHint.setAttribute('data-i18n', 'auth.forgot.contact_hint_email');
     applyTranslations();
   }
 

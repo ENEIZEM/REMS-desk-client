@@ -241,7 +241,8 @@ function stepCheck(which, step) {
     return desc.length > 0 && isValidEndDate(date);
   }
   if (step === 3) {
-    const fields = ['critical', 'high', 'medium', 'low'];
+    const fields = ['critical', 'high', 'medium', 'low',
+                    'critical-res', 'high-res', 'medium-res', 'low-res'];
     let bad = false, emptyAny = false;
     for (const k of fields) {
       const raw = document.getElementById(`${p}-sla-${k}`)?.value;
@@ -523,6 +524,7 @@ function wireOnce() {
 function resetCreateModal() {
   ['ct-partner-id', 'ct-name', 'ct-desc', 'ct-end-date',
    'ct-sla-critical', 'ct-sla-high', 'ct-sla-medium', 'ct-sla-low',
+   'ct-sla-critical-res', 'ct-sla-high-res', 'ct-sla-medium-res', 'ct-sla-low-res',
   ].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.querySelectorAll('[data-ct-role]').forEach(c => c.classList.toggle('selected', c.dataset.ctRole === 'client'));
   const cr = document.querySelector('input[name="ct-role"][value="client"]');
@@ -547,10 +549,14 @@ function readSla(prefix) {
     return raw === '' || raw == null ? undefined : Number(raw);
   };
   return {
-    sla_critical_response_h: v('critical'),
-    sla_high_response_h:     v('high'),
-    sla_medium_response_h:   v('medium'),
-    sla_low_response_h:      v('low'),
+    sla_critical_response_h:   v('critical'),
+    sla_high_response_h:       v('high'),
+    sla_medium_response_h:     v('medium'),
+    sla_low_response_h:        v('low'),
+    sla_critical_resolution_h: v('critical-res'),
+    sla_high_resolution_h:     v('high-res'),
+    sla_medium_resolution_h:   v('medium-res'),
+    sla_low_resolution_h:      v('low-res'),
   };
 }
 async function submitCreate() {
@@ -603,6 +609,10 @@ function openEditModal(id) {
   set('cte-sla-high',     c.sla?.high_h ?? '');
   set('cte-sla-medium',   c.sla?.medium_h ?? '');
   set('cte-sla-low',      c.sla?.low_h ?? '');
+  set('cte-sla-critical-res', c.sla?.critical_resolution_h ?? '');
+  set('cte-sla-high-res',     c.sla?.high_resolution_h ?? '');
+  set('cte-sla-medium-res',   c.sla?.medium_resolution_h ?? '');
+  set('cte-sla-low-res',      c.sla?.low_resolution_h ?? '');
   _doc.edit = { mediaId: null, file: null };
   renderDocTile('edit');
   ['err-cte-name','err-cte-desc','err-cte-end-date'].forEach(clearFieldErrorById);

@@ -20,10 +20,10 @@ import { refreshCharCounters } from '../../../../lib/char-counter.js';
 import { openMediaViewer } from '../../../../lib/media-viewer.js';
 import { wireDocPreview } from '../../../../lib/doc-preview.js';
 import {
-  requestListHTML, requestCardHTML, historyHTML, statusBadge, priorityBadge,
-  statusLabel, escapeHTML, slaRemainingMs, urgencyOf, markRequestSeen, setRequestViewer,
+  requestListHTML, requestCardHTML, historyHTML,
+  statusLabel, escapeHTML, slaRemainingMs, setRequestViewer, setRequestUnseenChecker,
 } from './requests-ui.js';
-import { statusBadge as eqStatusBadge } from './equipment-ui.js';
+import { hasUnseenForRequest, markRequestSeenLocal } from '../../notifications.js';
 
 let _requests = [];
 let _profile = null, _selfId = null, _myOrgId = null, _isOwner = false;
@@ -72,6 +72,8 @@ export async function mountRequests(profile) {
   _myOrgId = profile?.organization?.id ?? profile?.user?.organization_id ?? null;
   _isOwner = (profile?.user?.org_role || profile?.user?.role) === 'owner';
   setRequestViewer(_selfId);
+  // Чип «обновлено» считается из уведомлений (per-user, серверные).
+  setRequestUnseenChecker(hasUnseenForRequest);
   wireOnce();
   // Deep-link/возврат на #overview/<id> | #requests/<id> — подсветим
   // карточку после загрузки (лента у owner на Обзоре, у employee на Заявках).
@@ -149,7 +151,15 @@ export function renderAll() {
     const teamBase = teamSet.size
       ? scopedBase.filter(r => teamSet.has(String(r.assigned_to_id)) || teamSet.has(String(r.author_id)))
       : scopedBase;
+    // Сохраняем раскрытость секций (<details>) между перерисовками — иначе
+    // открытие дорожной карты (renderAll) сворачивало вручную раскрытый
+    // «Архив» и т.п. Снимаем состояние ДО перерисовки, восстанавливаем ПОСЛЕ.
+    const openState = {};
+    feed.querySelectorAll('details[data-rq-section]').forEach(d => { openState[d.dataset.rqSection] = d.open; });
     feed.innerHTML = segmentedHTML(applyQuickFilter(teamBase, ctx, quick), ctx);
+    feed.querySelectorAll('details[data-rq-section]').forEach(d => {
+      if (Object.prototype.hasOwnProperty.call(openState, d.dataset.rqSection)) d.open = openState[d.dataset.rqSection];
+    });
     loadAttachmentThumbs(feed);
     const scopeEl = document.querySelector(`[data-rq-scope="${name}"]`);
     if (scopeEl) scopeEl.innerHTML = scopeBarHTML(periodBase, scope);
@@ -265,7 +275,7 @@ export function segmentedHTML(list, ctx) {
   action.sort(byUrgency); free.sort(byUrgency); wip.sort(byUrgency);
 
   const section = (key, items, open) => items.length
-    ? `<details class="rq-section" ${open ? 'open' : ''}>
+    ? `<details class="rq-section" data-rq-section="${key}" ${open ? 'open' : ''}>
          <summary class="rq-section-head">
            <i class="ph ph-caret-right rq-section-caret"></i>
            <span data-i18n="requests.section.${key}">${escapeHTML(t('requests.section.' + key))}</span>
@@ -279,7 +289,7 @@ export function segmentedHTML(list, ctx) {
     section('action',  action,  true),
     section('free',    free,    true),
     section('wip',     wip,     true),
-    section('archive', archive, false),
+    section('archive', archive, true),
   ].join('');
   return html || requestListHTML([]); // пустой список → общий empty-state
 }
@@ -439,6 +449,9 @@ function setPriority(p) {
 }
 
 // SLA-источник: контракт (по контракту) или внутренние SLA орг (внутренняя).
+// В обоих случаях отдаём ПАРУ часов на приоритет: реакция (*_h) + устранение
+// (*_resolution_h). Для внутренней реакция берётся из internal_response_sla_*
+// (раньше ошибочно показывался resolution-набор internal_sla_*).
 function slaSource() {
   if (curType() === 'contract') {
     const id = Number(document.querySelector('#rq-contract')?.value);
@@ -449,25 +462,40 @@ function slaSource() {
   if (!lim) return null;
   return {
     title: t('requests.sla_internal_title'),
-    sla: { critical_h: lim.internal_sla_critical_h, high_h: lim.internal_sla_high_h,
-           medium_h: lim.internal_sla_medium_h, low_h: lim.internal_sla_low_h },
+    sla: {
+      // реакция (response)
+      critical_h: lim.internal_response_sla_critical_h, high_h: lim.internal_response_sla_high_h,
+      medium_h:   lim.internal_response_sla_medium_h,   low_h:  lim.internal_response_sla_low_h,
+      // устранение (resolution)
+      critical_resolution_h: lim.internal_sla_critical_h, high_resolution_h: lim.internal_sla_high_h,
+      medium_resolution_h:   lim.internal_sla_medium_h,   low_resolution_h:  lim.internal_sla_low_h,
+    },
   };
 }
 
-// 4 кликабельные SLA-плашки = выбор приоритета. Часы реакции берутся из
-// источника (контракт / внутренние SLA орг). Выбранная — подсвечена.
+// 4 кликабельные SLA-плашки = выбор приоритета. В каждой — час РЕАКЦИИ (⚡)
+// и час УСТРАНЕНИЯ (🔧) из источника (контракт / внутренние SLA орг).
 function renderSlaGrid() {
   const grid = document.querySelector('#rq-sla-grid');
   const srcEl = document.querySelector('#rq-sla-source');
   if (!grid) return;
   const src = slaSource();
-  const h = t('profile.hours_short');
-  const order = [['critical', 'critical_h'], ['high', 'high_h'], ['medium', 'medium_h'], ['low', 'low_h']];
-  grid.innerHTML = order.map(([p, key]) => {
-    const v = src?.sla?.[key];
+  const h = escapeHTML(t('profile.hours_short'));
+  const respT  = escapeHTML(t('profile.sla_col_response'));
+  const resolT = escapeHTML(t('profile.sla_col_resolution'));
+  const order = [
+    ['critical', 'critical_h', 'critical_resolution_h'], ['high', 'high_h', 'high_resolution_h'],
+    ['medium', 'medium_h', 'medium_resolution_h'],       ['low', 'low_h', 'low_resolution_h'],
+  ];
+  grid.innerHTML = order.map(([p, rk, rsk]) => {
+    const resp  = src?.sla?.[rk];
+    const resol = src?.sla?.[rsk];
     return `<button type="button" class="rq-sla-cell rq-prio-${p}${_priority === p ? ' is-on' : ''}" data-rq-prio="${p}">
       <span class="rq-sla-cell-label">${escapeHTML(t('requests.priority.' + p))}</span>
-      <span class="rq-sla-cell-val">${v != null ? `${v} ${escapeHTML(h)}` : '—'}</span>
+      <span class="rq-sla-cell-vals">
+        <span class="rq-sla-cell-val" title="${respT}"><i class="ph ph-lightning"></i>${resp != null ? `${resp}${h}` : '—'}</span>
+        ${resol != null ? `<span class="rq-sla-cell-val" title="${resolT}"><i class="ph ph-wrench"></i>${resol}${h}</span>` : ''}
+      </span>
     </button>`;
   }).join('');
   if (srcEl) srcEl.textContent = src ? src.title : '';
@@ -504,7 +532,6 @@ function equipmentRowHTML(eq, selected) {
         ${eq.model ? `<div class="rq-eq-model">${escapeHTML(eq.model)}</div>` : ''}
         <div class="rq-eq-meta">${meta}</div>
       </div>
-      <div class="rq-eq-status">${eqStatusBadge(eq.status)}</div>
     </div>`;
 }
 
@@ -515,7 +542,11 @@ function populateEquipmentSelect(selectedId) {
   const wrap   = document.querySelector('#rq-equipment-list');
   if (hidden) hidden.value = selectedId ? String(selectedId) : '';
   if (!wrap) return;
-  const list = _eqCache || [];
+  // Техника с уже активной (не закрытой) заявкой исключается из выбора —
+  // нельзя завести вторую заявку на ту же единицу. Исключение: техника,
+  // уже выбранная в этой заявке (режим редактирования) — её оставляем.
+  const selStr = selectedId ? String(selectedId) : '';
+  const list = (_eqCache || []).filter(e => !e.has_active_request || String(e.id) === selStr);
   if (!list.length) {
     wrap.innerHTML = `<div class="empty-state empty-state--inline"><i class="ph ph-desktop-tower"></i><span class="empty-state-text">${escapeHTML(t('equipment.empty'))}</span></div>`;
     return;
@@ -654,12 +685,39 @@ async function openRoadmap(id) {
   }
 }
 
+// Динамический цвет полосы по доле ОСТАВШЕГОСЯ бюджета времени:
+// 1 → зелёный, 0.5 → жёлтый, 0 → красный (плавная интерполяция).
+function barColor(frac) {
+  frac = Math.max(0, Math.min(1, frac));
+  const lerp = (a, b, k) => Math.round(a + (b - a) * k);
+  const G = [34, 197, 94], Y = [245, 158, 11], R = [239, 68, 68];
+  let c;
+  if (frac >= 0.5) { const k = (frac - 0.5) / 0.5; c = [lerp(Y[0], G[0], k), lerp(Y[1], G[1], k), lerp(Y[2], G[2], k)]; }
+  else             { const k = frac / 0.5;         c = [lerp(R[0], Y[0], k), lerp(R[1], Y[1], k), lerp(R[2], Y[2], k)]; }
+  return `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
+}
+
+// Длительность между двумя моментами в человекочитаемом виде («1ч 20м»).
+function fmtDur(ms) {
+  if (ms == null || ms < 0) return null;
+  const totalMin = Math.round(ms / 60000);
+  if (totalMin < 60) return `${Math.max(totalMin, 1)}${t('requests.sla.u_m')}`;
+  const h = Math.floor(ms / 3600000);
+  if (h < 48) {
+    const rm = Math.round((ms % 3600000) / 60000);
+    return rm ? `${h}${t('requests.sla.u_h')} ${rm}${t('requests.sla.u_m')}` : `${h}${t('requests.sla.u_h')}`;
+  }
+  const d = Math.floor(h / 24), rh = h % 24;
+  return rh ? `${d}${t('requests.sla.u_d')} ${rh}${t('requests.sla.u_h')}` : `${d}${t('requests.sla.u_d')}`;
+}
+
 function renderRoadmap(data) {
   const r = data.request;
   _requests = _requests.map(x => Number(x.id) === Number(r.id) ? r : x); // keep cache fresh
-  // Открыли карту (или вернулись после своего действия) → заявка «просмотрена»
-  // на её текущем updated_at: гасим индикатор «обновлено» и в ленте.
-  markRequestSeen(r.id, r.updated_at);
+  // Открыли карту → заявка «просмотрена»: локально гасим чип «обновлено»
+  // (data.request_seen на уведомлениях этой заявки). Серверный персист —
+  // в detail.get (reqApi.get выше). renderAll перерисует ленту без чипа.
+  markRequestSeenLocal(r.id);
   renderAll();
   const numEl = document.querySelector('#rrm-number'); if (numEl) numEl.textContent = r.request_number;
   // Подзаголовок = стороны заявки текстом: «Внутренняя · org» либо
@@ -671,52 +729,113 @@ function renderRoadmap(data) {
       ? `<i class="ph ph-buildings"></i> ${escapeHTML(t('requests.type_internal'))} · ${escapeHTML(r.client_org_name || '—')}`
       : `<i class="ph ph-handshake"></i> ${escapeHTML(t('requests.type_contract'))} · ${escapeHTML(r.client_org_name || '—')} <i class="ph ph-arrow-right rq-parties-arrow"></i> ${escapeHTML(r.contractor_org_name || '—')}`;
   }
-  // Чипы статуса + SLA (приоритет) — справа от заголовка/подзаголовка.
+  // Угловой чип времени больше не нужен — всё несут бары ниже.
   const chipsEl = document.querySelector('#rrm-head-chips');
-  if (chipsEl) chipsEl.innerHTML = `${statusBadge(r.status)}${priorityBadge(r.priority)}`;
+  if (chipsEl) chipsEl.innerHTML = '';
 
-  // Сводка: бейджи → описание в мягкой панели → сетка «подпись/значение».
-  // titleText — нативная подсказка на случай обрезанного значения;
-  // wide — растянуть элемент на всю строку сетки (длинные «Стороны»).
-  const sumItem = (icon, labelKey, valueHTML, { titleText = '', wide = false } = {}) => `
-    <div class="rrm-sum-item${wide ? ' rrm-sum-item--wide' : ''}">
-      <span class="rrm-sum-ico"><i class="ph ${icon}"></i></span>
-      <span class="rrm-sum-text">
-        <span class="rrm-sum-lbl">${escapeHTML(t(labelKey))}</span>
-        <span class="rrm-sum-val"${titleText ? ` title="${escapeHTML(titleText)}"` : ''}>${valueHTML}</span>
-      </span>
-    </div>`;
-  const eqVal = r.equipment
-    ? escapeHTML([r.equipment.brand, r.equipment.model].filter(Boolean).join(' ') || r.equipment.inventory_number || '—')
-    : escapeHTML(t('requests.no_equipment'));
-  const eqIcon = r.equipment?.category_icon || 'ph-desktop';
+  // ── SLA как ОБРАТНЫЕ прогресс-бары: длина = доля ОСТАВШЕГОСЯ бюджета
+  //    времени, цвет динамический (зелёный→жёлтый→красный). Сделано быстро →
+  //    длинный зелёный; на пределе → короткий красный; просрочено → красный
+  //    во всю ширину. Реакция: created→response_due (готова при взятии);
+  //    Устранение: assigned→due_date (готово при выполнении/закрытии).
+  const termEvt = (data.history || []).filter(h => ['done', 'closed', 'cancelled'].includes(h.new_status)).pop();
+  const termAt  = r.closed_at || termEvt?.changed_at || null;
+  const reactionDoneAt   = r.assigned_at || termAt;
+  const resolutionDoneAt = r.closed_at || (r.assigned_at ? termAt : null);
+  const phaseBar = ({ labelKey, start, deadline, doneAt, doneKey, muted }) => {
+    const given = (start && deadline) ? (new Date(deadline).getTime() - new Date(start).getTime()) : null;
+    if (given == null || given <= 0) {
+      return `<div class="rrm-bar rrm-bar--idle">
+        <div class="rrm-bar-head"><span class="rrm-bar-label">${escapeHTML(t(labelKey))}</span>
+        <span class="rrm-bar-nums">${escapeHTML(t('requests.sla_pending'))}</span></div>
+        <div class="rrm-bar-track"></div></div>`;
+    }
+    const g = escapeHTML(t('requests.sla_given'));
+    let frac, over, primary;
+    if (doneAt) {
+      const actual = new Date(doneAt).getTime() - new Date(start).getTime();
+      over = actual > given;
+      frac = Math.max(0, Math.min(1, (given - actual) / given));  // остаток бюджета на момент завершения
+      primary = escapeHTML(t(doneKey, { t: fmtDur(actual) }));    // «взято за …» / «закрыто за …»
+    } else {
+      const remaining = new Date(deadline).getTime() - Date.now();
+      over = remaining <= 0;
+      frac = Math.max(0, Math.min(1, remaining / given));
+      primary = over
+        ? escapeHTML(t('requests.sla.overdue', { t: fmtDur(-remaining) }))
+        : escapeHTML(t('requests.sla_remaining', { t: fmtDur(remaining) }));
+    }
+    const width = over ? 100 : Math.max(4, Math.round(frac * 100));
+    const color = over ? 'var(--clr-error, #ef4444)' : barColor(frac);
+    return `<div class="rrm-bar${over ? ' rrm-bar--over' : ''}${muted ? ' rrm-bar--muted' : ''}">
+      <div class="rrm-bar-head"><span class="rrm-bar-label">${escapeHTML(t(labelKey))}</span>
+        <span class="rrm-bar-nums"><b>${primary}</b> · ${g}: ${fmtDur(given)}</span></div>
+      <div class="rrm-bar-track"><div class="rrm-bar-fill" data-w="${width}" style="width:0;background:${color}"></div></div></div>`;
+  };
+  // Реакция — всегда; когда заявка взята, фаза реакции завершена → приглушаем,
+  // чтобы внимание было на устранении. Бар устранения показываем ТОЛЬКО после
+  // взятия (до этого окно устранения ещё не стартовало — не путаем юзера).
+  const taken = !!r.assigned_at;
+  const barsHTML = `
+    ${phaseBar({ labelKey: 'profile.sla_col_response', start: r.created_at, deadline: r.response_due, doneAt: reactionDoneAt, doneKey: 'requests.sla_taken_in', muted: taken })}
+    ${taken ? phaseBar({ labelKey: 'profile.sla_col_resolution', start: r.assigned_at, deadline: r.due_date, doneAt: resolutionDoneAt, doneKey: r.status === 'closed' ? 'requests.sla_closed_short' : 'requests.sla_done_short' }) : ''}`;
+
+  // ── Полный блок техники (+ фото) ──
+  let equipBlock;
+  if (r.equipment) {
+    const e = r.equipment;
+    const title = [e.brand, e.model].filter(Boolean).join(' ') || e.inventory_number || t('requests.no_equipment');
+    const cat = e.category_name ? t(e.category_name) : null;
+    const warranty = e.warranty_until
+      ? new Date(e.warranty_until).toLocaleDateString(getLang() === 'en' ? 'en-US' : 'ru-RU') : null;
+    const row = (lblKey, val) => val
+      ? `<div class="rrm-eq-row"><span class="rrm-eq-lbl">${escapeHTML(t(lblKey))}</span><span class="rrm-eq-val">${escapeHTML(val)}</span></div>` : '';
+    // Фото техники — приватное, грузится через loadEquipmentThumbs; клик
+    // открывает просмотрщик (делегированный обработчик data-rq-att-view).
+    const photoHTML = e.photo?.id
+      ? `<div class="rrm-eq-photo" data-rq-att-view="${e.photo.id}" role="button" tabindex="0" title="${escapeHTML(t('equipment.photo_view') || '')}"><img data-rq-eq-photo="${e.photo.id}" alt=""></div>`
+      : '';
+    equipBlock = `<div class="rrm-eq${photoHTML ? ' rrm-eq--haspic' : ''}">
+      ${photoHTML}
+      <div class="rrm-eq-main">
+        <div class="rrm-eq-title"><i class="ph ${e.category_icon || 'ph-desktop'}"></i> ${escapeHTML(title)}</div>
+        <div class="rrm-eq-grid">
+          ${row('equipment.inventory_short', e.inventory_number)}
+          ${row('equipment.serial_short', e.serial_number)}
+          ${row('equipment.category_label', cat)}
+          ${row('equipment.location_label', e.location)}
+          ${row('equipment.responsible_label', e.responsible_name)}
+          ${row('equipment.warranty_label', warranty)}
+        </div>
+      </div></div>`;
+  } else {
+    equipBlock = `<div class="rrm-eq rrm-eq--none"><i class="ph ph-desktop-slash"></i> ${escapeHTML(t('requests.no_equipment'))}</div>`;
+  }
+
   const ratingVal = r.rating
     ? `<span class="rrm-sum-stars">${'<i class="ph-fill ph-star"></i>'.repeat(r.rating)}${'<i class="ph ph-star"></i>'.repeat(5 - r.rating)}</span>`
     : '';
-  // SLA-строка дорожной карты: активный час (отклик пока new / решение в
-  // работе) + дедлайн + цветной остаток (или просрочено). Для терминальных
-  // показываем исходный срок решения справочно (без пилла).
-  const dl = (iso) => escapeHTML(new Date(iso).toLocaleString(getLang() === 'en' ? 'en-US' : 'ru-RU',
-    { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }));
-  const u = urgencyOf(r);
-  const pill = (lvl, text) => `<span class="rq-due rq-due-${lvl}" style="margin-left:.4rem;"><i class="ph ${lvl === 'overdue' ? 'ph-alarm' : 'ph-clock'}"></i> ${escapeHTML(text)}</span>`;
-  let slaItem = '';
-  if (r.status === 'new' && r.response_due) {
-    slaItem = sumItem('ph-clock-countdown', 'requests.sla_response', `${dl(r.response_due)}${u.level !== 'none' ? pill(u.level, u.text) : ''}`, { wide: true });
-  } else if ((r.status === 'assigned' || r.status === 'in_progress') && r.due_date) {
-    slaItem = sumItem('ph-clock-countdown', 'requests.sla_resolution', `${dl(r.due_date)}${u.level !== 'none' ? pill(u.level, u.text) : ''}`, { wide: true });
-  } else if (r.due_date) {
-    slaItem = sumItem('ph-calendar', 'requests.sum_due', dl(r.due_date), { wide: true });
+
+  // Срок хранения вложений: у закрытой/отменённой заявки медиа удаляются через
+  // closed_request_media_retention_days после терминального события.
+  const retDays = Number(_profile?.organization?.limits?.closed_request_media_retention_days) || 0;
+  const hasAtt = (data.attachments || []).length || (data.history || []).some(h => (h.attachments || []).length);
+  let retentionNote = '';
+  if ((r.status === 'closed' || r.status === 'cancelled') && termAt && hasAtt && retDays > 0) {
+    const delDate = new Date(new Date(termAt).getTime() + retDays * 86400000);
+    const daysLeft = Math.max(0, Math.ceil((delDate.getTime() - Date.now()) / 86400000));
+    retentionNote = `<div class="rrm-att-retention"><i class="ph ph-trash"></i> ${escapeHTML(t('requests.media_retention', { date: delDate.toLocaleDateString(getLang() === 'en' ? 'en-US' : 'ru-RU'), days: daysLeft }))}</div>`;
   }
 
-  // Сводка: техника · SLA · оценка. Стороны переехали в подзаголовок,
-  // заказчик/исполнитель — в чипы событий истории.
-  document.querySelector('#rrm-summary').innerHTML = `
-    <div class="rrm-sum-grid">
-      ${sumItem(eqIcon, 'requests.sum_equipment', eqVal, { titleText: r.equipment ? eqVal.replace(/&[a-z]+;/g, '') : '' })}
-      ${slaItem}
-      ${ratingVal ? sumItem('ph-star', 'requests.sum_rating', ratingVal) : ''}
-    </div>`;
+  const sumEl = document.querySelector('#rrm-summary');
+  sumEl.innerHTML = `
+    <div class="rrm-bars">${barsHTML}</div>
+    ${equipBlock}
+    ${ratingVal ? `<div class="rrm-rating-row"><span class="rrm-rating-lbl">${escapeHTML(t('requests.sum_rating'))}</span> ${ratingVal}</div>` : ''}
+    ${retentionNote}`;
+  // Приватное фото техники + плавная заливка баров (0 → цель).
+  loadEquipmentThumbs(sumEl);
+  requestAnimationFrame(() => sumEl.querySelectorAll('.rrm-bar-fill[data-w]').forEach(f => { f.style.width = f.dataset.w + '%'; }));
 
   // Описание заявки = сообщение автора при создании. Показываем его как
   // комментарий события «Заявка создана» (new→new), если у того ещё нет
@@ -755,7 +874,11 @@ function renderRoadmapActions(r) {
   if (r.status === 'new' && isContractor && !isAuthor) actions.push(b('take', 'requests.act_take', 'btn-primary', 'ph-hand-grabbing'));
   if (r.status === 'assigned' && isAssignee)           actions.push(b('start', 'requests.act_start', 'btn-primary', 'ph-play'));
   if (r.status === 'in_progress' && isAssignee)        actions.push(b('finish', 'requests.act_finish', 'btn-primary', 'ph-check'));
-  if (r.status === 'done' && isAuthorOrOwner)          actions.push(b('close', 'requests.act_close', 'btn-primary', 'ph-star'));
+  // Закрыть+оценить может заказчик (автор/владелец), но НЕ исполнитель:
+  // нельзя оценивать собственную работу. Для внутренних заявок владелец
+  // может оказаться и исполнителем (взял заявку сам) — тогда оценивает
+  // автор, а не он. Backend дублирует этот запрет (cannot_rate_own_work).
+  if (r.status === 'done' && isAuthorOrOwner && !isAssignee) actions.push(b('close', 'requests.act_close', 'btn-primary', 'ph-star'));
   if (r.status === 'new' && isAuthor)                  actions.push(b('edit', 'requests.act_edit', 'btn-secondary', 'ph-pencil-simple'));
   const danger = (!['closed', 'cancelled'].includes(r.status) && isAuthorOrOwner)
     ? b('cancel', 'requests.act_cancel', 'btn-danger-ghost', 'ph-x-circle')
@@ -981,6 +1104,9 @@ function wireOnce() {
   // Открытие модалки новой заявки с предвыбранным оборудованием
   // (диспатчит equipment.js по кнопке на карточке техники).
   window.addEventListener('rems:new-request', (e) => openCreateModal(e.detail?.equipmentId));
+  // Открытие дорожной карты заявки по id (кнопка «Перейти к заявке» в
+  // карточке техники). Модалка глобальная — работает с любой вкладки.
+  window.addEventListener('rems:open-request', (e) => { const id = Number(e.detail?.requestId); if (id) openRoadmap(id); });
 
   // Finish modal — вложения через doc-preview (сетка квадратов).
   _finishDoc = wireDocPreview({

@@ -55,41 +55,69 @@ export function urgencyOf(r) {
     : t('requests.sla.left', { t: fmtSpan(remaining) });
   return { level: fracLeft <= 0.25 ? 'soon' : 'ok', text };
 }
+
+/** Единый чип времени для карточки/шапки с ДВУМЯ числами:
+ *   • new                      → «взять за <остаток> · дано <окно реакции>»
+ *   • assigned / in_progress   → «<остаток> до срока · дано <окно решения>»
+ *   • просрочено               → «просрочено <X> · дано <окно>»
+ *   • closed                   → «закрыто за <факт> · дано <окно>» (зел./красн.)
+ *   • cancelled                → «Отменена»
+ *  Возвращает { level, text } (level → класс rq-due-*) или null. */
+export function timeChip(r) {
+  const span = (a, b) => (a && b) ? fmtSpan(new Date(b).getTime() - new Date(a).getTime()) : null;
+  if (r.status === 'cancelled') return { level: 'cancelled', text: t('requests.status.cancelled') };
+  if (r.status === 'closed') {
+    if (r.assigned_at && r.due_date) {
+      const given  = new Date(r.due_date).getTime() - new Date(r.assigned_at).getTime();
+      const actual = (r.closed_at ? new Date(r.closed_at).getTime() : Date.now()) - new Date(r.assigned_at).getTime();
+      return {
+        level: actual > given ? 'overdue' : 'done',
+        text:  t('requests.sla.closed_in', { t: fmtSpan(actual), g: fmtSpan(given) }),
+      };
+    }
+    return { level: 'done', text: t('requests.status.closed') };
+  }
+  const u = urgencyOf(r);
+  if (u.level === 'none') return null;
+  const given = r.status === 'new' ? span(r.created_at, r.response_due) : span(r.assigned_at, r.due_date);
+  return { level: u.level, text: given ? `${u.text} · ${t('requests.sla.given_short', { g: given })}` : u.text };
+}
+// Двухкомпонентный формат («1ч 30м», «2д 3ч») — без грубого округления:
+// 50ч → «2д 2ч», 1.5ч → «1ч 30м». До часа — минуты.
 function fmtSpan(ms) {
-  const m = Math.round(ms / 60000);
-  if (m < 60) return `${Math.max(m, 1)}${t('requests.sla.u_m')}`;
-  const h = ms / 3600000;
-  if (h < 48) return `${Math.round(h)}${t('requests.sla.u_h')}`;
-  return `${Math.round(h / 24)}${t('requests.sla.u_d')}`;
+  const totalMin = Math.round(ms / 60000);
+  if (totalMin < 60) return `${Math.max(totalMin, 1)}${t('requests.sla.u_m')}`;
+  const h = Math.floor(ms / 3600000);
+  if (h < 48) {
+    const rm = Math.round((ms % 3600000) / 60000);
+    return rm ? `${h}${t('requests.sla.u_h')} ${rm}${t('requests.sla.u_m')}` : `${h}${t('requests.sla.u_h')}`;
+  }
+  const d = Math.floor(h / 24), rh = h % 24;
+  return rh ? `${d}${t('requests.sla.u_d')} ${rh}${t('requests.sla.u_h')}` : `${d}${t('requests.sla.u_d')}`;
 }
 
-// Индикатор «обновлено»: карточка помечается, если заявка изменилась
-// (updated_at) ПОСЛЕ того, как пользователь последний раз открывал её
-// дорожную карту. Базлайн пишется в localStorage при открытии роадмапа
-// (и после собственных действий — renderRoadmap вызывается со свежими
-// данными, поэтому свои изменения не флагаются). Никогда-не-открытые
-// заявки индикатора не получают (чтобы не шуметь — их и так поднимают
-// секции/срочность).
-// Id текущего пользователя — чтобы на карточке отличать «создана вами»
-// от «свободна» (ставит mountRequests через setRequestViewer).
+// Индикатор «обновлено»: карточка помечается, если по заявке есть
+// непросмотренные изменения. Источник правды — УВЕДОМЛЕНИЯ (per-user,
+// серверные): каждое изменение шлёт уведомление с request_id, а при
+// открытии дорожной карты на нём ставится флаг data.request_seen
+// (отдельно от read_at колокольчика). Проверку инжектит requests.js
+// через setRequestUnseenChecker(fn) → notifications.hasUnseenForRequest.
+// Раньше состояние «просмотрено» хранилось в localStorage (per-device,
+// терялось при очистке кэша, не синхронилось между устройствами).
 let _viewerId = null;
 export function setRequestViewer(id) { _viewerId = id != null ? Number(id) : null; }
 
-const SEEN_KEY = 'rems_req_seen';
-function seenMap() { try { return JSON.parse(localStorage.getItem(SEEN_KEY) || '{}'); } catch { return {}; } }
-export function markRequestSeen(id, updatedAt) {
-  if (id == null || !updatedAt) return;
-  const m = seenMap();
-  m[String(id)] = updatedAt;
-  try { localStorage.setItem(SEEN_KEY, JSON.stringify(m)); } catch {}
-}
+let _unseenChecker = null;
+export function setRequestUnseenChecker(fn) { _unseenChecker = typeof fn === 'function' ? fn : null; }
 function isRequestUpdated(r) {
-  const seen = seenMap()[String(r.id)];
-  return seen != null && r.updated_at != null && new Date(r.updated_at) > new Date(seen);
+  return _unseenChecker ? !!_unseenChecker(r.id) : false;
 }
 
+// Иконки статусов — СТАНДАРТИЗОВАНЫ с уведомлениями (notifications.js
+// requestStatusIcon): создана/new=clipboard-text, взята=hand-grab,
+// в работе=wrench, выполнена=check-circle, закрыта=lock-simple, отменена=x-circle.
 const STATUS_ICON = {
-  new: 'ph-hand-palm', assigned: 'ph-user-focus', in_progress: 'ph-wrench',
+  new: 'ph-clipboard-text', assigned: 'ph-hand-grabbing', in_progress: 'ph-wrench',
   done: 'ph-check-circle', closed: 'ph-lock-simple', cancelled: 'ph-x-circle',
 };
 
@@ -132,9 +160,18 @@ export function typeChipHTML(r) {
 export function requestCardHTML(r) {
   const u = urgencyOf(r);
   const terminal = r.status === 'closed' || r.status === 'cancelled';
-  const eq = r.equipment
-    ? `<span class="contract-muted"><i class="ph ${r.equipment.category_icon || 'ph-desktop'}"></i> ${escapeHTML([r.equipment.brand, r.equipment.model].filter(Boolean).join(' ') || r.equipment.inventory_number || '—')}</span>`
-    : '';
+  // Техника: бренд/модель + инвентарный № + расположение (ключевые поля
+  // прямо в ленте — полный блок в дорожной карте).
+  let eq = '';
+  if (r.equipment) {
+    const eqName = [r.equipment.brand, r.equipment.model].filter(Boolean).join(' ') || r.equipment.inventory_number || '—';
+    const eqBits = [
+      eqName,
+      ([r.equipment.brand, r.equipment.model].filter(Boolean).length && r.equipment.inventory_number) ? `№${r.equipment.inventory_number}` : '',
+      r.equipment.location ? `<i class="ph ph-map-pin"></i> ${escapeHTML(r.equipment.location)}` : '',
+    ].filter(Boolean);
+    eq = `<span class="contract-muted"><i class="ph ${r.equipment.category_icon || 'ph-desktop'}"></i> ${eqBits.map((b, i) => i === 0 ? escapeHTML(b) : b).join(' · ')}</span>`;
+  }
   const assignee = r.assignee_name
     ? `<span class="contract-muted"><i class="ph ph-user"></i> ${escapeHTML(r.assignee_name)}</span>`
     : '';
@@ -143,9 +180,11 @@ export function requestCardHTML(r) {
   const statusText = r.status === 'new'
     ? (_viewerId != null && Number(r.author_id) === _viewerId ? t('requests.created_by_you') : t('requests.unassigned'))
     : statusLabel(r.status);
-  const dueIcon = u.level === 'overdue' ? 'ph-alarm' : 'ph-clock';
-  const duePill = u.level !== 'none'
-    ? `<span class="rq-due rq-due-${u.level}"><i class="ph ${dueIcon}"></i> ${escapeHTML(u.text)}</span>`
+  // Чип времени с ДВУМЯ числами (остаток/факт + отведённый срок).
+  const tc = timeChip(r);
+  const dueIcon = tc?.level === 'overdue' ? 'ph-alarm' : (tc?.level === 'done' ? 'ph-check' : 'ph-clock');
+  const duePill = tc
+    ? `<span class="rq-due rq-due-${tc.level}"><i class="ph ${dueIcon}"></i> ${escapeHTML(tc.text)}</span>`
     : '';
   // Индикатор «обновлено» — заявка изменилась с момента последнего просмотра.
   const updated = isRequestUpdated(r);

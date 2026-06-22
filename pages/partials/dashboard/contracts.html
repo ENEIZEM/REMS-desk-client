@@ -91,27 +91,36 @@
         </div>
       </div>
 
-      <!-- ── Step 3: SLA (все 4 обязательны) ───────────────────────── -->
+      <!-- ── Step 3: SLA — реакция + устранение по приоритетам (8 значений) ── -->
       <div id="ct-step-3" class="ct-step" style="display:none;">
         <p class="form-helper" style="font-size:var(--text-xs); color:var(--clr-text-muted); margin:0 0 .65rem;">
-          <span data-i18n="contracts.sla_step_hint_req">Целевое время реакции на заявки по приоритетам (часы). Заполните все 4 значения.</span>
+          <span data-i18n="contracts.sla_step_hint_req">Целевое время реакции и устранения по приоритетам (часы). Заполните все значения.</span>
         </p>
         <div class="ct-sla-block">
+          <div class="ct-sla-row ct-sla-row--head">
+            <span data-i18n="profile.sla_col_priority">Приоритет</span>
+            <span data-i18n="profile.sla_col_response">Реакция</span>
+            <span data-i18n="profile.sla_col_resolution">Устранение</span>
+          </div>
           <div class="ct-sla-row">
             <span class="sla-pri sla-critical"><span data-i18n="profile.sla_critical">Критический</span> <span class="req">*</span></span>
             <div class="ct-sla-input"><input id="ct-sla-critical" type="number" min="1" max="720" placeholder="—" class="form-input"><span class="ct-sla-unit" data-i18n="profile.hours_short">ч</span></div>
+            <div class="ct-sla-input"><input id="ct-sla-critical-res" type="number" min="1" max="720" placeholder="—" class="form-input"><span class="ct-sla-unit" data-i18n="profile.hours_short">ч</span></div>
           </div>
           <div class="ct-sla-row">
             <span class="sla-pri sla-high"><span data-i18n="profile.sla_high">Высокий</span> <span class="req">*</span></span>
             <div class="ct-sla-input"><input id="ct-sla-high" type="number" min="1" max="720" placeholder="—" class="form-input"><span class="ct-sla-unit" data-i18n="profile.hours_short">ч</span></div>
+            <div class="ct-sla-input"><input id="ct-sla-high-res" type="number" min="1" max="720" placeholder="—" class="form-input"><span class="ct-sla-unit" data-i18n="profile.hours_short">ч</span></div>
           </div>
           <div class="ct-sla-row">
             <span class="sla-pri sla-medium"><span data-i18n="profile.sla_medium">Средний</span> <span class="req">*</span></span>
             <div class="ct-sla-input"><input id="ct-sla-medium" type="number" min="1" max="720" placeholder="—" class="form-input"><span class="ct-sla-unit" data-i18n="profile.hours_short">ч</span></div>
+            <div class="ct-sla-input"><input id="ct-sla-medium-res" type="number" min="1" max="720" placeholder="—" class="form-input"><span class="ct-sla-unit" data-i18n="profile.hours_short">ч</span></div>
           </div>
           <div class="ct-sla-row">
             <span class="sla-pri sla-low"><span data-i18n="profile.sla_low">Низкий</span> <span class="req">*</span></span>
             <div class="ct-sla-input"><input id="ct-sla-low" type="number" min="1" max="720" placeholder="—" class="form-input"><span class="ct-sla-unit" data-i18n="profile.hours_short">ч</span></div>
+            <div class="ct-sla-input"><input id="ct-sla-low-res" type="number" min="1" max="720" placeholder="—" class="form-input"><span class="ct-sla-unit" data-i18n="profile.hours_short">ч</span></div>
           </div>
         </div>
         <div class="form-error" id="err-ct-sla" style="margin-top:.5rem;"><i class="ph ph-warning-circle"></i><span></span></div>
@@ -193,27 +202,36 @@
           <div class="form-error" id="err-cte-end-date"><i class="ph ph-warning-circle"></i><span></span></div>
         </div>
       </div>
-      <!-- Step 3: SLA (все 4 обязательны) -->
+      <!-- Step 3: SLA — реакция + устранение по приоритетам (8 значений) -->
       <div id="cte-step-3" class="ct-step" style="display:none;">
         <p class="form-helper" style="font-size:var(--text-xs); color:var(--clr-text-muted); margin:0 0 .65rem;">
-          <span data-i18n="contracts.sla_step_hint_req">Целевое время реакции на заявки по приоритетам (часы). Заполните все 4 значения.</span>
+          <span data-i18n="contracts.sla_step_hint_req">Целевое время реакции и устранения по приоритетам (часы). Заполните все значения.</span>
         </p>
         <div class="ct-sla-block">
+          <div class="ct-sla-row ct-sla-row--head">
+            <span data-i18n="profile.sla_col_priority">Приоритет</span>
+            <span data-i18n="profile.sla_col_response">Реакция</span>
+            <span data-i18n="profile.sla_col_resolution">Устранение</span>
+          </div>
           <div class="ct-sla-row">
             <span class="sla-pri sla-critical"><span data-i18n="profile.sla_critical">Критический</span> <span class="req">*</span></span>
             <div class="ct-sla-input"><input id="cte-sla-critical" type="number" min="1" max="720" placeholder="—" class="form-input"><span class="ct-sla-unit" data-i18n="profile.hours_short">ч</span></div>
+            <div class="ct-sla-input"><input id="cte-sla-critical-res" type="number" min="1" max="720" placeholder="—" class="form-input"><span class="ct-sla-unit" data-i18n="profile.hours_short">ч</span></div>
           </div>
           <div class="ct-sla-row">
             <span class="sla-pri sla-high"><span data-i18n="profile.sla_high">Высокий</span> <span class="req">*</span></span>
             <div class="ct-sla-input"><input id="cte-sla-high" type="number" min="1" max="720" placeholder="—" class="form-input"><span class="ct-sla-unit" data-i18n="profile.hours_short">ч</span></div>
+            <div class="ct-sla-input"><input id="cte-sla-high-res" type="number" min="1" max="720" placeholder="—" class="form-input"><span class="ct-sla-unit" data-i18n="profile.hours_short">ч</span></div>
           </div>
           <div class="ct-sla-row">
             <span class="sla-pri sla-medium"><span data-i18n="profile.sla_medium">Средний</span> <span class="req">*</span></span>
             <div class="ct-sla-input"><input id="cte-sla-medium" type="number" min="1" max="720" placeholder="—" class="form-input"><span class="ct-sla-unit" data-i18n="profile.hours_short">ч</span></div>
+            <div class="ct-sla-input"><input id="cte-sla-medium-res" type="number" min="1" max="720" placeholder="—" class="form-input"><span class="ct-sla-unit" data-i18n="profile.hours_short">ч</span></div>
           </div>
           <div class="ct-sla-row">
             <span class="sla-pri sla-low"><span data-i18n="profile.sla_low">Низкий</span> <span class="req">*</span></span>
             <div class="ct-sla-input"><input id="cte-sla-low" type="number" min="1" max="720" placeholder="—" class="form-input"><span class="ct-sla-unit" data-i18n="profile.hours_short">ч</span></div>
+            <div class="ct-sla-input"><input id="cte-sla-low-res" type="number" min="1" max="720" placeholder="—" class="form-input"><span class="ct-sla-unit" data-i18n="profile.hours_short">ч</span></div>
           </div>
         </div>
         <div class="form-error" id="err-cte-sla" style="margin-top:.5rem;"><i class="ph ph-warning-circle"></i><span></span></div>

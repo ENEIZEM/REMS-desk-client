@@ -87,6 +87,22 @@ export function populateOrgTab(org, role, canEditOrg, canEditLim, isSiteAdmin = 
 
   // ── Subscription + counters ────────────────────────────────
   document.querySelector('#sub-plan-line').textContent = org.subscription_purchased ? 'Pro' : 'Free';
+  // Item 4: у владельца чип тарифа — сразу после слова «Тариф» (слева),
+  // кнопка «Улучшить» отжимается вправо. У сотрудника (кнопки нет) чип
+  // остаётся в правой части строки — DOM не трогаем.
+  const planLine  = document.querySelector('#sub-plan-line');
+  const planRow   = planLine?.closest('.profile-row');
+  const planLabel = planRow?.querySelector('.profile-row-label');
+  const planWrap  = planLine?.closest('.profile-row-edit-wrap');
+  if (planLine && planRow && planLabel && planWrap) {
+    if (canEditOrg) {
+      planRow.classList.add('profile-row--plan-inline');
+      if (planLabel.nextElementSibling !== planLine) planLabel.insertAdjacentElement('afterend', planLine);
+    } else {
+      planRow.classList.remove('profile-row--plan-inline');
+      if (!planWrap.contains(planLine)) planWrap.insertAdjacentElement('afterbegin', planLine);
+    }
+  }
   document.querySelector('#sub-employee-usage').textContent  = org.limits ? `${org.current_employee_count ?? 0} / ${org.limits.max_employees}` : '—';
   // Активные заявки: текущее число считает бэкенд (current_active_requests),
   // максимум — из organization_limits. Оба значения из БД, не хардкод.

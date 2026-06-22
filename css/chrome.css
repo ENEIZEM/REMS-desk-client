@@ -149,8 +149,22 @@ body:not(.rems-nav-ready) .sidebar nav { visibility: hidden; }
    margin-top:auto прижимает футер к низу). */
 .sidebar-footer {
   margin-top: auto; padding-top: var(--space-4);
-  display: flex; flex-direction: column; gap: 0.15rem; align-items: flex-start;
+  display: flex; flex-direction: column; gap: 0.15rem; align-items: center;
+  text-align: center;
 }
+/* «Выйти» внизу сайдбара — нейтральная по умолчанию, красная на hover. */
+.sidebar-logout {
+  display: flex; align-items: center; justify-content: center; gap: var(--space-2);
+  width: 100%; padding: var(--space-2) var(--space-3); margin-bottom: var(--space-3);
+  border: 1px solid var(--clr-border); border-radius: var(--radius-md);
+  background: var(--clr-surface); color: var(--clr-text-secondary);
+  font-size: var(--text-sm); font-weight: 500; font-family: inherit; cursor: pointer;
+  transition: background var(--trans-fast), color var(--trans-fast), border-color var(--trans-fast);
+}
+.sidebar-logout:hover {
+  background: var(--clr-error-light); color: var(--clr-error); border-color: var(--clr-error);
+}
+.sidebar-logout i { font-size: 1rem; }
 .sidebar-footer-copy { font-size: var(--text-xs); color: var(--clr-text-muted); }
 .sidebar-footer-mail { font-size: var(--text-xs); color: var(--clr-text-secondary); text-decoration: none; }
 .sidebar-footer-mail:hover { color: var(--clr-accent); text-decoration: underline; }
@@ -158,7 +172,10 @@ body:not(.rems-nav-ready) .sidebar nav { visibility: hidden; }
 .sidebar {
   position: absolute;
   top: calc(var(--float-gap) + var(--float-navbar-h) + var(--float-gap));
-  bottom: var(--float-gap);
+  /* Низ сайдбара совпадает с нижней кромкой контента: main-content имеет
+     padding-bottom: --space-6, поэтому и здесь --space-6 (раньше было
+     --float-gap, синхронно с прежним padding-bottom). */
+  bottom: var(--space-6);
   left: var(--float-gap);
   width: var(--float-sidebar-w);
   z-index: 49;
@@ -240,7 +257,13 @@ body[data-sidebar="closed"] .sidebar {
   margin-left:  calc(var(--float-gap) + var(--float-sidebar-w) + var(--space-6));
   margin-right: calc(var(--float-gap) + var(--float-sidebar-w) + var(--space-6));
   max-width: none;
-  padding: 1.5rem 0 var(--float-gap) 0;
+  /* Верхний отступ так, чтобы зазор «шапка → заголовок вкладки» был равен
+     зазору между большими блоками (--space-6 = 1.5rem). app-layout уже
+     даёт --float-gap (1rem) clearance под плавающим навбаром, поэтому
+     собственный top-padding = --space-6 − --float-gap = 0.5rem. Итог:
+     навбар → заголовок = 1.5rem, как и интервал между блоками. Нижний
+     отступ = --space-6: тот же интервал «последний блок → низ страницы». */
+  padding: calc(var(--space-6) - var(--float-gap)) 0 var(--space-6) 0;
   background: transparent;
 }
 /* Tab-level header — title + concrete one-line description. The

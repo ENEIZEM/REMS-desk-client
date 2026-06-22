@@ -12,7 +12,8 @@
 
 import { profile, auth }                 from '../../../api.js';
 import { logout, toast, errorMessage }   from '../../../auth.js';
-import { t, getLang }                    from '../../../i18n.js';
+import { t, getLang, applyTranslations } from '../../../i18n.js';
+import { phoneChannelEnabled }           from '../../../config.js';
 import { wireFormGuard }                 from '../../../form-guard.js';
 import { createCodeInput }               from '../../../lib/code-input.js';
 import {
@@ -417,6 +418,13 @@ async function chpNext() {
 
 export function wireChangePassword(ctx) {
   Object.assign(_ctx, ctx);
+
+  // Пока SMS-канал выключен — контакт всегда email; плейсхолдер
+  // forgot-поля не должен показывать «+7 999…» (см. [[sms-capability-flag]]).
+  if (!phoneChannelEnabled()) {
+    const fc = document.querySelector('#chp-forgot-contact[data-i18n-ph]');
+    if (fc) { fc.setAttribute('data-i18n-ph', 'profile.forgot_pwd_contact_ph_email'); applyTranslations(); }
+  }
 
   // ── Code-input controller (step 2). ────────────────────────────
   _codeCtl = createCodeInput({

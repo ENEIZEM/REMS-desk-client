@@ -412,6 +412,20 @@ function wireModalOnce() {
       // (слушает requests.js).
       window.dispatchEvent(new CustomEvent('rems:new-request', { detail: { equipmentId: id } }));
     }
+    if (btn.dataset.eqAction === 'go-request') {
+      // Переход к активной заявке по этой технике — ведём в ленту заявок и
+      // подсвечиваем карточку, как при клике по уведомлению. Лента у owner на
+      // «Обзоре», у остальных — на «Заявках». Меняем только hash (in-system
+      // навигация, без reload/PIN-gate); если hash совпал — дёргаем hashchange.
+      const reqId = Number(btn.dataset.eqRequestId);
+      if (reqId) {
+        const base = document.body.dataset.role === 'owner' ? 'overview' : 'requests';
+        const newHash = `#${base}/${reqId}`;
+        const prev = location.hash;
+        location.hash = newHash;
+        if (prev === newHash) window.dispatchEvent(new HashChangeEvent('hashchange'));
+      }
+    }
   });
 
   document.querySelector('#btn-eq-delete-confirm')?.addEventListener('click', confirmDelete);

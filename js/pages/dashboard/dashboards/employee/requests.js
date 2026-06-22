@@ -63,8 +63,9 @@ export function mountEmployeeRequests(profile) {
     </div>
 
     <!-- Рабочая зона: лента заявок | уведомления (2-колонка, лента шире) —
-         единый паттерн с дашбордом руководителя. -->
-    <div class="profile-two-col employee-two-col rq-work-cols">
+         единый паттерн с дашбордом руководителя. Отступ сверху как у
+         руководителя — иначе под-фильтры «прилипают» к лентам. -->
+    <div class="profile-two-col employee-two-col rq-work-cols" style="margin-top:.75rem;">
       <div class="profile-col employee-col-left">
         <div class="card profile-card rq-work-feed">
           <div class="profile-card-header profile-card-header--with-actions">

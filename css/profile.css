@@ -175,6 +175,16 @@
   font-size: var(--text-sm); color: var(--clr-text-primary);
 }
 .profile-row-edit-wrap .profile-row-value { color: inherit; }
+/* …кроме plan-pill: тариф «Free/Pro» всегда зелёным акцентом, а не
+   наследованным navy (иначе color:inherit выше перебивает .plan-pill). */
+.profile-row-edit-wrap .plan-pill { color: var(--clr-accent); }
+
+/* Владелец (есть кнопка «Улучшить»): чип тарифа стоит сразу после слова
+   «Тариф» слева, а margin-right:auto отжимает кнопку к правому краю строки.
+   margin-left отрицательный — гасит штатный gap строки (--space-3), чтобы
+   чип прилегал к слову «Тариф», а не висел далеко. У сотрудника класс не
+   ставится — чип остаётся в правой части строки. */
+.profile-row--plan-inline .plan-pill { margin-left: calc(0.4rem - var(--space-3)); margin-right: auto; }
 .profile-row-edit-btn {
   background: transparent; border: none; cursor: pointer; padding: .15rem;
   color: var(--clr-text-muted); display: inline-flex; align-items: center;

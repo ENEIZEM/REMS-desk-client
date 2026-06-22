@@ -100,13 +100,16 @@ export function statusBadge(status) {
 function actionIcons(eq, { canDelete }) {
   const btn = (action, icon, tipKey, danger = false) =>
     `<button class="contract-icon-btn${danger ? ' contract-icon-btn--danger' : ''}" data-eq-action="${action}" data-eq-id="${eq.id}" data-ct-tip="${escapeHTML(t(tipKey))}" aria-label="${escapeHTML(t(tipKey))}"><i class="ph ${icon}"></i></button>`;
-  // «Новая заявка» — отдельная кнопка с НАДПИСЬЮ (без подсказки), цвет
-  // акцентный зелёный. Открывает модалку заявки с этим оборудованием.
-  const newReq = `<button class="btn btn-sm btn-primary eq-newreq-btn" data-eq-action="new-request" data-eq-id="${eq.id}"><i class="ph ph-clipboard-text"></i> <span>${escapeHTML(t('equipment.btn_new_request'))}</span></button>`;
+  // Заявочная кнопка (одинаковая ширина .eq-action-btn в RU/EN, акцентно-
+  // серая): по технике с активной заявкой — «Перейти к заявке», иначе —
+  // «Новая заявка». Нельзя завести вторую заявку на ту же технику.
+  const reqBtn = eq.has_active_request
+    ? `<button class="btn btn-sm eq-action-btn eq-action-btn--go" data-eq-action="go-request" data-eq-id="${eq.id}" data-eq-request-id="${eq.active_request_id ?? ''}"><i class="ph ph-arrow-right"></i> <span>${escapeHTML(t('equipment.btn_go_request'))}</span></button>`
+    : `<button class="btn btn-sm btn-primary eq-action-btn" data-eq-action="new-request" data-eq-id="${eq.id}"><i class="ph ph-clipboard-text"></i> <span>${escapeHTML(t('equipment.btn_new_request'))}</span></button>`;
   // edit / delete — серые icon-кнопки (delete краснеет на hover).
   let icons = btn('edit', 'ph-pencil-simple', 'equipment.btn_edit');
   if (canDelete) icons += btn('delete', 'ph-trash', 'equipment.btn_delete', true);
-  return `${newReq}<div class="contract-icon-actions">${icons}</div>`;
+  return `${reqBtn}<div class="contract-icon-actions">${icons}</div>`;
 }
 
 /** Подсветка совпадений поиска (raw → escaped + <mark>). */
@@ -162,13 +165,12 @@ export function equipmentCardHTML(eq, { selfId, isOwner, search } = {}) {
             <div class="equipment-card-text">
               <div class="equipment-card-brand">${hl(title, search)}</div>
               ${modelLine}
-              ${notesLine}
             </div>
             <div class="equipment-card-head-right">
-              ${statusBadge(eq.status)}
               ${actionIcons(eq, { canDelete })}
             </div>
           </div>
+          ${notesLine}
           <div class="equipment-card-meta">${metaParts.join('<span class="contract-dot">·</span>')}</div>
         </div>
       </div>
