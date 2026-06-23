@@ -348,6 +348,28 @@
     }
     .mockup-title-bar span { font-size: .6rem; color: rgba(255,255,255,.5); font-family: monospace; }
     .mockup-body { padding: 1.25rem; }
+    /* ── Dashboard-preview: реальные компоненты заявок внутри окна-макета ──
+       Окно узкое, поэтому тело чуть плотнее реального дашборда. Карточки/
+       чипы здесь некликабельны — гасим hover-подъём и курсор-pointer, чтобы
+       статичное превью не «прыгало» под мышью. */
+    .mockup-dash { padding: 1rem 1.05rem 1.1rem; }
+    /* Все KPI-плитки в ОДИН ряд: реальные плитки рассчитаны на широкую
+       колонку (min-width 5rem + wrap), поэтому в узком окне макета ужимаем
+       их (min-width:0 + nowrap) и слегка уменьшаем типографику, чтобы все
+       шесть поместились в строку без переноса. */
+    .mockup-dash .rq-tiles { flex-wrap: nowrap; gap: 0.3rem; }
+    .mockup-dash .rq-tile { min-width: 0; padding: 0.4rem 0.35rem; }
+    .mockup-dash .rq-tile-count { font-size: 0.95rem; }
+    .mockup-dash .rq-tile-label { font-size: 0.5rem; line-height: 1.15; }
+    .mockup-dash .rq-tile-star { font-size: 0.7em; }
+    .mockup-dash .mockup-scope { margin-bottom: 0.85rem; }
+    .mockup-dash .request-card,
+    .mockup-dash .rq-tile,
+    .mockup-dash .rq-scope-chip,
+    .mockup-dash .rq-section > summary { cursor: default; }
+    .mockup-dash .request-card:hover { transform: none; box-shadow: none; }
+    .mockup-dash .rq-tile:hover,
+    .mockup-dash .rq-scope-chip:hover { border-color: var(--clr-border); }
     .mockup-header {
       display: flex;
       align-items: center;
@@ -664,14 +686,52 @@
     .section-label { color: var(--clr-accent) !important; }
     .section-title { color: var(--clr-navy)   !important; }
 
+    /* Короткий знак (иконка-бейдж) скрыт на десктопе — показывается
+       только на мобильной ширине вместо полного логотипа. */
+    .navbar-logo-short { display: none; }
+
     /* Responsive hero */
     @media (max-width: 768px) {
+      /* Лого: полный знак → компактный знак (logo.svg). */
+      .navbar-logo-full  { display: none; }
+      .navbar-logo-short { display: block; }
+
+      /* Шапка для гостя: оставляем только «Регистрация». Прячем «Войти»,
+         а ширину кнопки делаем по тексту. */
+      #nav-guest .btn-secondary { display: none; }
+      .navbar-actions #nav-guest .btn { min-width: 0; }
+
+      /* Переключатель языка → ОДНА кнопка-тумблер: показываем только
+         НЕактивный язык (тот, на который переключимся). Клик меняет язык,
+         класс .active перебрасывается → показывается уже другой язык. */
+      .navbar > .navbar-actions .lang-switcher {
+        border: none; padding: 0; background: transparent; gap: 0;
+      }
+      .navbar > .navbar-actions .lang-btn.active { display: none; }
+      .navbar > .navbar-actions .lang-btn:not(.active) {
+        display: inline-flex; align-items: center;
+        color: var(--clr-navy);
+        background: var(--clr-bg-muted);
+        border: 1px solid var(--clr-border);
+        padding: 0.4rem 0.7rem;
+        border-radius: var(--radius-full);
+      }
+
       .hero-2col {
         grid-template-columns: 1fr;
         min-height: auto;
       }
-      .hero-text { padding: 3rem 1.5rem; }
-      .hero-mockup { display: none; }
+      /* Текст героя по центру + меньше вертикали под анимацию. */
+      .hero-text {
+        padding: 2rem 1.25rem 2.5rem;
+        align-items: center;
+        text-align: center;
+      }
+      .hero-title    { font-size: clamp(1.5rem, 6.5vw, 2rem); }
+      .hero-subtitle { font-size: var(--text-base); max-width: 34rem; }
+      .hero-actions  { justify-content: center; width: 100%; }
+      .hero-actions .btn-hero-cta { width: 100%; max-width: 22rem; justify-content: center; }
+      .hero-mockup   { display: none; }
     }
   </style>
 </head>
@@ -680,7 +740,10 @@
 <!-- ── Navbar ──────────────────────────────────────────────────── -->
 <header class="navbar">
   <a href="/" class="navbar-brand" aria-label="REMS-desk">
-    <img class="navbar-logo-img" src="/assets/logo-full.svg" alt="REMS-desk — Repair & Equipment Management System">
+    <!-- Полный знак на десктопе; на узких экранах прячется в пользу
+         квадратной иконки-бейджа (.navbar-logo-short) — см. @media ниже. -->
+    <img class="navbar-logo-img navbar-logo-full" src="/assets/logo-full.svg" alt="REMS-desk — Repair & Equipment Management System">
+    <img class="navbar-logo-img navbar-logo-short" src="/assets/logo-compact.svg" alt="REMS-desk">
   </a>
   <div class="navbar-spacer"></div>
   <div class="navbar-actions">
@@ -788,55 +851,166 @@
           <div class="mockup-dot r"></div>
           <div class="mockup-dot y"></div>
           <div class="mockup-dot g"></div>
-          <div class="mockup-title-bar"><span>rems.local/dashboard</span></div>
+          <div class="mockup-title-bar"><span>https://rems-desk.ru/dashboard#overview</span></div>
         </div>
-        <div class="mockup-body">
-          <div class="mockup-header">
-            <div class="mockup-logo">
-              <div class="mockup-logo-icon"><i class="ph ph-wrench"></i></div>
-              REMS
-            </div>
-            <span style="font-size:.6rem; color:var(--clr-text-muted);">Иванов И.И. · Сотрудник</span>
+        <!-- Body — РЕАЛЬНЫЕ компоненты дашборда (те же CSS-классы, что и в
+             приложении: rq-tiles / rq-scope-seg / rq-section / request-card),
+             с демонстрационными данными. Статика, но визуально идентична
+             живому интерфейсу. -->
+        <div class="mockup-body mockup-dash">
+          <!-- KPI-чипы (без «оценки по контрактам» — для компактности окна) -->
+          <div class="rq-tiles">
+            <button type="button" class="rq-tile is-active"><span class="rq-tile-count">8</span><span class="rq-tile-label" data-i18n="requests.tile.all">Все</span></button>
+            <button type="button" class="rq-tile"><span class="rq-tile-count">2</span><span class="rq-tile-label" data-i18n="requests.tile.action">На мне</span></button>
+            <button type="button" class="rq-tile"><span class="rq-tile-count">3</span><span class="rq-tile-label" data-i18n="requests.tile.free">Свободно</span></button>
+            <button type="button" class="rq-tile rq-tile--danger"><span class="rq-tile-count">1</span><span class="rq-tile-label" data-i18n="requests.tile.overdue">Просрочено</span></button>
+            <button type="button" class="rq-tile"><span class="rq-tile-count">2</span><span class="rq-tile-label" data-i18n="requests.tile.archive">Закрыто</span></button>
+            <div class="rq-tile rq-tile--metric"><span class="rq-tile-count">4.7<i class="ph-fill ph-star rq-tile-star" aria-hidden="true"></i></span><span class="rq-tile-label" data-i18n="requests.tile.rating_internal">Оценка внутри</span></div>
           </div>
-          <div class="mockup-stats">
-            <div class="mockup-stat">
-              <div class="mockup-stat-val" style="color:var(--clr-accent);">12</div>
-              <div class="mockup-stat-lbl">Открытых</div>
-            </div>
-            <div class="mockup-stat">
-              <div class="mockup-stat-val">5</div>
-              <div class="mockup-stat-lbl">В работе</div>
-            </div>
-            <div class="mockup-stat">
-              <div class="mockup-stat-val" style="color:var(--clr-navy);">48</div>
-              <div class="mockup-stat-lbl">Закрыто</div>
-            </div>
+
+          <!-- Вторая строка фильтров: тип заявки -->
+          <div class="rq-scope-seg mockup-scope">
+            <button type="button" class="rq-scope-chip is-active"><span data-i18n="employee.req_scope_all">Все</span><span class="rq-scope-count">8</span></button>
+            <button type="button" class="rq-scope-chip"><span data-i18n="employee.req_scope_internal">Внутренние</span><span class="rq-scope-count">5</span></button>
+            <button type="button" class="rq-scope-chip"><span data-i18n="employee.req_scope_partner">Контракты</span><span class="rq-scope-count">3</span></button>
           </div>
-          <div class="mockup-section-label">Активные заявки</div>
-          <div class="mockup-req">
-            <div class="mockup-req-icon teal"><i class="ph ph-printer"></i></div>
-            <div class="mockup-req-main">
-              <div class="mockup-req-title">HP LaserJet — не печатает</div>
-              <div class="mockup-req-sub">Бухгалтерия · #REQ-1042</div>
+
+          <!-- Сворачиваемые списки заявок -->
+          <details class="rq-section" open>
+            <summary class="rq-section-head">
+              <i class="ph ph-caret-right rq-section-caret"></i>
+              <span data-i18n="requests.section.action">Требуют действия</span>
+              <span class="rq-section-count">2</span>
+            </summary>
+            <div class="rq-section-body">
+              <div class="request-card rq-urg-soon" role="button" tabindex="0">
+                <div class="request-card-head">
+                  <div class="request-card-id">
+                    <span class="rq-dot rq-dot-in_progress" aria-hidden="true"></span>
+                    <span class="request-card-number">REQ-1042</span>
+                    <span class="request-type-chip"><i class="ph ph-buildings"></i><span data-i18n="requests.type_internal">Внутренняя</span></span>
+                    <span class="rq-status-label" data-i18n="requests.status.in_progress">В работе</span>
+                  </div>
+                  <div class="request-card-head-right"><span class="rq-due rq-due-soon"><i class="ph ph-clock"></i> <span data-i18n="landing.demo.sla1">осталось 1ч 10м · дано 2ч</span></span></div>
+                </div>
+                <div class="request-card-desc" data-i18n="landing.demo.d1">HP LaserJet не печатает — замятие бумаги в лотке 2</div>
+                <div class="request-card-foot">
+                  <div class="request-card-meta"><span class="contract-muted"><i class="ph ph-printer"></i> HP LaserJet · №INV-204</span><span class="contract-dot">·</span><span class="contract-muted"><i class="ph ph-user"></i> <span data-i18n="landing.demo.you">Вы</span></span></div>
+                  <span class="request-card-open"><span data-i18n="requests.open">Дорожная карта</span><i class="ph-bold ph-caret-right"></i></span>
+                </div>
+              </div>
+              <div class="request-card rq-urg-ok" role="button" tabindex="0">
+                <div class="request-card-head">
+                  <div class="request-card-id">
+                    <span class="rq-dot rq-dot-assigned" aria-hidden="true"></span>
+                    <span class="request-card-number">REQ-1051</span>
+                    <span class="request-type-chip request-type-chip--contract"><i class="ph ph-handshake"></i><span data-i18n="requests.type_contract">По контракту</span></span>
+                    <span class="rq-status-label" data-i18n="requests.status.assigned">Назначена</span>
+                  </div>
+                  <div class="request-card-head-right"><span class="rq-due rq-due-ok"><i class="ph ph-clock"></i> <span data-i18n="landing.demo.sla2">осталось 3ч 40м · дано 8ч</span></span></div>
+                </div>
+                <div class="request-card-desc" data-i18n="landing.demo.d2">Замена матрицы ноутбука Dell Latitude 5420</div>
+                <div class="request-card-foot">
+                  <div class="request-card-meta"><span class="contract-muted"><i class="ph ph-handshake"></i> <span data-i18n="landing.demo.org_alfa">ООО «Альфа»</span> <i class="ph ph-arrow-right rq-parties-arrow"></i> <span data-i18n="landing.demo.org_servicepro">СервисПро</span></span></div>
+                  <span class="request-card-open"><span data-i18n="requests.open">Дорожная карта</span><i class="ph-bold ph-caret-right"></i></span>
+                </div>
+              </div>
             </div>
-            <span class="mockup-badge orange">В работе</span>
-          </div>
-          <div class="mockup-req">
-            <div class="mockup-req-icon navy"><i class="ph ph-desktop-tower"></i></div>
-            <div class="mockup-req-main">
-              <div class="mockup-req-title">ПК зависает при загрузке</div>
-              <div class="mockup-req-sub">ИТ-отдел · #REQ-1041</div>
+          </details>
+
+          <details class="rq-section">
+            <summary class="rq-section-head">
+              <i class="ph ph-caret-right rq-section-caret"></i>
+              <span data-i18n="requests.section.free">Свободный пул</span>
+              <span class="rq-section-count">2</span>
+            </summary>
+            <div class="rq-section-body">
+              <div class="request-card rq-urg-soon" role="button" tabindex="0">
+                <div class="request-card-head">
+                  <div class="request-card-id">
+                    <span class="rq-dot rq-dot-new" aria-hidden="true"></span>
+                    <span class="request-card-number">REQ-1063</span>
+                    <span class="request-type-chip"><i class="ph ph-buildings"></i><span data-i18n="requests.type_internal">Внутренняя</span></span>
+                    <span class="rq-status-label" data-i18n="requests.unassigned">Свободна</span>
+                  </div>
+                  <div class="request-card-head-right"><span class="rq-due rq-due-soon"><i class="ph ph-clock"></i> <span data-i18n="landing.demo.sla3">взять за 25м · дано 2ч</span></span></div>
+                </div>
+                <div class="request-card-desc" data-i18n="landing.demo.d3">Не включается монитор на ресепшене</div>
+                <div class="request-card-foot">
+                  <div class="request-card-meta"><span class="contract-muted"><i class="ph ph-desktop"></i> Dell P2419H · №INV-077 · <i class="ph ph-map-pin"></i> <span data-i18n="landing.demo.loc_reception">Ресепшен</span></span></div>
+                  <span class="request-card-open"><span data-i18n="requests.open">Дорожная карта</span><i class="ph-bold ph-caret-right"></i></span>
+                </div>
+              </div>
+              <div class="request-card rq-urg-ok" role="button" tabindex="0">
+                <div class="request-card-head">
+                  <div class="request-card-id">
+                    <span class="rq-dot rq-dot-new" aria-hidden="true"></span>
+                    <span class="request-card-number">REQ-1064</span>
+                    <span class="request-type-chip request-type-chip--contract"><i class="ph ph-handshake"></i><span data-i18n="requests.type_contract">По контракту</span></span>
+                    <span class="rq-status-label" data-i18n="requests.unassigned">Свободна</span>
+                  </div>
+                  <div class="request-card-head-right"><span class="rq-due rq-due-ok"><i class="ph ph-clock"></i> <span data-i18n="landing.demo.sla4">взять за 1ч 30м · дано 4ч</span></span></div>
+                </div>
+                <div class="request-card-desc" data-i18n="landing.demo.d4">МФУ Kyocera зажёвывает бумагу при сканировании</div>
+                <div class="request-card-foot">
+                  <div class="request-card-meta"><span class="contract-muted"><i class="ph ph-handshake"></i> <span data-i18n="landing.demo.org_beta">ООО «Бета»</span> <i class="ph ph-arrow-right rq-parties-arrow"></i> <span data-i18n="landing.demo.org_servicepro">СервисПро</span></span></div>
+                  <span class="request-card-open"><span data-i18n="requests.open">Дорожная карта</span><i class="ph-bold ph-caret-right"></i></span>
+                </div>
+              </div>
             </div>
-            <span class="mockup-badge blue">Новая</span>
-          </div>
-          <div class="mockup-req">
-            <div class="mockup-req-icon teal"><i class="ph ph-monitor"></i></div>
-            <div class="mockup-req-main">
-              <div class="mockup-req-title">Монитор — артефакты на экране</div>
-              <div class="mockup-req-sub">Отдел продаж · #REQ-1040</div>
+          </details>
+
+          <details class="rq-section">
+            <summary class="rq-section-head">
+              <i class="ph ph-caret-right rq-section-caret"></i>
+              <span data-i18n="requests.section.wip">В работе</span>
+              <span class="rq-section-count">1</span>
+            </summary>
+            <div class="rq-section-body">
+              <div class="request-card rq-urg-overdue" role="button" tabindex="0">
+                <div class="request-card-head">
+                  <div class="request-card-id">
+                    <span class="rq-dot rq-dot-in_progress" aria-hidden="true"></span>
+                    <span class="request-card-number">REQ-1048</span>
+                    <span class="request-type-chip"><i class="ph ph-buildings"></i><span data-i18n="requests.type_internal">Внутренняя</span></span>
+                    <span class="rq-status-label" data-i18n="requests.status.in_progress">В работе</span>
+                  </div>
+                  <div class="request-card-head-right"><span class="rq-due rq-due-overdue"><i class="ph ph-alarm"></i> <span data-i18n="landing.demo.sla5">просрочено 40м · дано 4ч</span></span></div>
+                </div>
+                <div class="request-card-desc" data-i18n="landing.demo.d5">Замена термопасты и чистка системного блока</div>
+                <div class="request-card-foot">
+                  <div class="request-card-meta"><span class="contract-muted"><i class="ph ph-desktop-tower"></i> HP ProDesk 400</span><span class="contract-dot">·</span><span class="contract-muted"><i class="ph ph-user"></i> <span data-i18n="landing.demo.person1">Анна Котова</span></span></div>
+                  <span class="request-card-open"><span data-i18n="requests.open">Дорожная карта</span><i class="ph-bold ph-caret-right"></i></span>
+                </div>
+              </div>
             </div>
-            <span class="mockup-badge green">Закрыта</span>
-          </div>
+          </details>
+
+          <details class="rq-section">
+            <summary class="rq-section-head">
+              <i class="ph ph-caret-right rq-section-caret"></i>
+              <span data-i18n="requests.section.archive">Архив</span>
+              <span class="rq-section-count">2</span>
+            </summary>
+            <div class="rq-section-body">
+              <div class="request-card request-card--terminal" role="button" tabindex="0">
+                <div class="request-card-head">
+                  <div class="request-card-id">
+                    <span class="rq-dot rq-dot-closed" aria-hidden="true"></span>
+                    <span class="request-card-number">REQ-1001</span>
+                    <span class="request-type-chip"><i class="ph ph-buildings"></i><span data-i18n="requests.type_internal">Внутренняя</span></span>
+                    <span class="rq-status-label" data-i18n="requests.status.closed">Закрыта</span>
+                  </div>
+                  <div class="request-card-head-right"><span class="rq-due rq-due-done"><i class="ph ph-check"></i> <span data-i18n="landing.demo.sla6">закрыто за 1ч 50м · дано 2ч</span></span></div>
+                </div>
+                <div class="request-card-desc" data-i18n="landing.demo.d6">Настройка сетевого принтера в отделе продаж</div>
+                <div class="request-card-foot">
+                  <div class="request-card-meta"><span class="contract-muted"><i class="ph ph-printer"></i> Canon i-SENSYS · №INV-031</span></div>
+                  <span class="request-card-open"><span data-i18n="requests.open">Дорожная карта</span><i class="ph-bold ph-caret-right"></i></span>
+                </div>
+              </div>
+            </div>
+          </details>
         </div>
       </div>
     </div>
@@ -1197,19 +1371,33 @@
       // crests pick up jade-teal highlights naturally from the shader's
       // built-in shininess. Zoom slightly < 1 = larger waves for calmer
       // hero motion.
-      VANTA.WAVES({
+      window.__vantaEffect = VANTA.WAVES({
         el: '#hero-vanta',
         mouseControls: true,
         touchControls: true,
         gyroControls: false,
         minHeight: 200, minWidth: 200,
         scale: 1.0,
-        scaleMobile: 1.0,
+        // Меньший рендер-масштаб на мобильных: спокойнее анимация и легче
+        // для слабых устройств (волны крупнее, кадров меньше нагрузки).
+        scaleMobile: 0.7,
         color: 0x2a3c55,
         shininess: 15.0,
         waveHeight: 15,
         waveSpeed: 0.85,
         zoom: 0.95,
+      });
+      // Раскрытие/сворачивание списка в макапе меняет высоту окна → растёт
+      // весь hero. Vanta пересчитывает размер canvas только по window-resize,
+      // поэтому без явного resize выросшая снизу часть hero оставалась НЕ
+      // покрыта анимацией (серый фон). Дёргаем resize на toggle (на следующем
+      // кадре — после рефлоу, и ещё раз с задержкой на всякий случай).
+      document.querySelectorAll('.mockup-dash details.rq-section').forEach((d) => {
+        d.addEventListener('toggle', () => {
+          const fit = () => { try { window.__vantaEffect?.resize(); } catch (_) {} };
+          requestAnimationFrame(fit);
+          setTimeout(fit, 300);
+        });
       });
       return;
     }
@@ -1228,7 +1416,7 @@
      async IIFE for backwards browser compat. ───────────────────── */
   import { initI18n, t }       from './js/i18n.js';
   import { profile, clearSession } from './js/api.js';
-  import { logout }            from './js/auth.js';
+  import { logout, toast }     from './js/auth.js';
 
   function $(s){ return document.querySelector(s); }
 
@@ -1328,66 +1516,48 @@
   function wireUserDropdown() {
     const trigger = $('#nav-user-trigger');
     const dd      = $('#nav-user-dropdown');
-    const wrap    = $('.user-menu-wrap');
 
-    // Escape Chrome's nested-backdrop-filter limitation: move the
-    // dropdown out of the navbar (the parent already has its own
-    // backdrop-filter, so a descendant filter doesn't composite).
-    // Mirrors the dashboard logic in dashboard/index.js — see comment
-    // there for the full rationale.
-    if (dd && dd.parentElement !== document.body) {
-      document.body.appendChild(dd);
-      dd.style.position = 'fixed';
-    }
-    const position = () => {
-      if (!dd || !wrap) return;
-      const rect = wrap.getBoundingClientRect();
-      dd.style.top   = `${rect.bottom + 6}px`;
-      dd.style.right = `${window.innerWidth - rect.right}px`;
-      dd.style.left  = 'auto';
-    };
-    window.addEventListener('resize', position);
+    // Мини-меню на главной СКРЫТО — так же, как его убрали в дашборде.
+    // Решение: клик и по аватару, и по ФИО ведёт в Обзор, без выпадашки.
+    // Разметку и обработчики dropdown НЕ удаляем (могут пригодиться позже) —
+    // просто не показываем меню (ни по hover, ни по клику).
+    dd?.classList.add('hidden');
 
-    let closeTimer = null;
-    const open  = () => {
-      if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
-      position();
-      dd.classList.remove('hidden');
-    };
-    const close = () => dd.classList.add('hidden');
-    const deferClose = () => { if (closeTimer) clearTimeout(closeTimer); closeTimer = setTimeout(close, 120); };
-    wrap?.addEventListener('mouseenter', open);
-    wrap?.addEventListener('mouseleave', deferClose);
-    // Panel itself also listens so the cursor traversing wrap→panel
-    // doesn't drop the close timer mid-flight.
-    dd?.addEventListener('mouseenter', open);
-    dd?.addEventListener('mouseleave', deferClose);
+    // Аватар → дашборд (Обзор). ФИО (#nav-user-name) уже
+    // <a href="/pages/dashboard.html"> и ведёт туда же нативно.
     trigger?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (dd.classList.contains('hidden')) open();
-      else close();
+      e.preventDefault();
+      window.location.href = '/pages/dashboard.html#overview';
     });
-    document.addEventListener('click', (e) => {
-      if (!wrap || !dd) return;
-      if (wrap.contains(e.target)) return;
-      if (dd.contains(e.target))   return;
-      close();
+    // Колокольчик → Обзор (лента уведомлений живёт там).
+    $('#nav-bell')?.addEventListener('click', () => {
+      window.location.href = '/pages/dashboard.html#overview';
     });
-    // Name is a plain <a href="/pages/dashboard.html"> — no extra JS
-    // wiring needed; the browser's native navigation handles the click.
+    // Logout-обработчик оставляем «на будущее»: кнопка внутри скрытого
+    // меню, не видна, но код цел. Выход доступен из дашборда.
     $('#nav-logout')?.addEventListener('click', (e) => {
       e.preventDefault();
       logout();
-    });
-    // Bell on the landing → dashboard's Overview tab (notifications
-    // feed lives inside Overview since the dedicated tab was retired).
-    $('#nav-bell')?.addEventListener('click', () => {
-      window.location.href = '/pages/dashboard.html#overview';
     });
   }
 
   (async () => {
     try { await initI18n(); } catch (e) { console.error('[landing] i18n failed:', e); }
+
+    // Cookie-free notice. REMS uses NO cookies — auth token, device-id
+    // and language preference all live in localStorage. We surface that
+    // once per browser session as a courtesy toast (the "seen" flag lives
+    // in sessionStorage, not a cookie — so it reappears on a fresh tab/
+    // session but not on every in-session reload). Deferred a beat so it
+    // doesn't fight the page's first paint / Vanta init for the main thread.
+    try {
+      if (!sessionStorage.getItem('rems_cookie_notice_seen')) {
+        setTimeout(() => {
+          toast(t('landing.cookie_notice'), 'ok', 7000);
+          try { sessionStorage.setItem('rems_cookie_notice_seen', '1'); } catch (_) {}
+        }, 1200);
+      }
+    } catch (_) { /* private-mode / storage disabled — skip the notice */ }
 
     // Only try to fetch profile if there's a token at all — no point
     // burning a 401 every page load for guests.

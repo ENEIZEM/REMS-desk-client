@@ -162,6 +162,11 @@ function hideAlert(id) {
 
   const state = {
     contact:           '',
+    // Код, подтверждённый на step 2. Бэкенд на /auth/register требует
+    // ПОВТОРНОГО предъявления кода (а не только факта used_at) — это
+    // закрывает окно гонки, когда посторонний регистрирует чужой
+    // свежеверифицированный контакт. Храним его до финального submit.
+    verified_code:     '',
     role:              '',
     organization_name: '',
     organization_id:   null,
@@ -604,6 +609,9 @@ function hideAlert(id) {
     setLoading(btn, true);
     try {
       await auth.verifyCode(state.contact, code);
+      // Запоминаем подтверждённый код — финальный submit предъявит его
+      // бэкенду повторно (см. комментарий у state.verified_code).
+      state.verified_code = code;
       goStep(3);
       setTimeout(() => q('#reg-name')?.focus(), 80);
     } catch (err) {
@@ -744,6 +752,7 @@ function hideAlert(id) {
       password_confirm: password2,
       pin,                       // 6 digits, required
       language_code:    getLang(),
+      verification_code: state.verified_code,  // повторное предъявление кода
     };
     if (dept) payload.department = dept;
     if (state.role === 'owner') {

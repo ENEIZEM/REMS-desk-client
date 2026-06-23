@@ -24,6 +24,10 @@
      max-width and side margins as the landing navbar/content, so the
      dashboard's chrome aligns left/right with the marketing pages. */
   --float-column-max:  var(--landing-navbar, 1540px);
+  /* Место, которое шапка/чрома обязаны оставлять слева под плавающую
+     кнопку-тоггл сайдбара (gap + кнопка + gap). Левый край навбара никогда
+     не заходит левее этой границы → кнопка всегда видна и кликабельна. */
+  --tog-clear:         calc(var(--float-gap) + var(--float-toggle-size) + var(--float-gap));
 }
 
 /* Page bg under all floating tiles. */
@@ -64,10 +68,19 @@ body[data-sidebar] { background: var(--clr-bg-subtle); }
 body[data-sidebar] > .navbar {
   position: fixed;
   top: var(--float-gap);
-  left: 50%;
-  transform: translateX(-50%);
-  width: calc(100% - 2 * var(--float-gap));
-  max-width: var(--float-column-max);
+  /* Текучие поля (без жёстких брейкпоинтов):
+     • На широких экранах навбар центрирован шириной до --float-column-max
+       → симметричные поля = (100vw − column-max)/2 с ОБЕИХ сторон.
+     • Поля уменьшаются равномерно по мере сужения страницы.
+     • Левое поле НЕ может стать меньше --tog-clear (под кнопку-тоггл) →
+       как только симметричное поле упирается в эту границу, слева оно
+       фиксируется, а правое (зеркальное) продолжает уменьшаться до --float-gap.
+     • Дальше сужается уже сама ширина навбара (left/right анкоры фиксированы). */
+  left:  max(var(--tog-clear), calc((100vw - var(--float-column-max)) / 2));
+  right: max(var(--float-gap),  calc((100vw - var(--float-column-max)) / 2));
+  width: auto;
+  transform: none;
+  max-width: none;
 }
 
 /* Floating square toggle — same dimensions as the navbar height, but
@@ -198,6 +211,24 @@ body[data-sidebar="closed"] .sidebar {
   opacity: 0;
   pointer-events: none;
 }
+
+/* Затемняющий scrim: выделяет открытый сайдбар, когда он начинает
+   перекрывать контент (узкие экраны). z-index 48 — НИЖЕ сайдбара (49,
+   остаётся ярким), но выше контента (тёмный). По умолчанию невидим;
+   включается только при открытом сайдбаре на узком экране. Навбар/тоггл
+   (z-index 200) остаются над scrim'ом — это намеренно (chrome). */
+.sidebar-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 48;
+  background: rgba(15, 23, 42, 0.45);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--trans-normal);
+}
+@media (max-width: 1400px) {
+  body[data-sidebar="open"] .sidebar-scrim { opacity: 1; pointer-events: auto; }
+}
 .nav-section       { margin-bottom: var(--space-6); }
 /* «Продолжение» секции — нет верхнего отступа, чтобы пункты шли
    единым списком без визуального разрыва, и без header-label сверху. */
@@ -254,8 +285,17 @@ body[data-sidebar="closed"] .sidebar {
    reflow anything. */
 .main-content {
   min-width: 0;
-  margin-left:  calc(var(--float-gap) + var(--float-sidebar-w) + var(--space-6));
-  margin-right: calc(var(--float-gap) + var(--float-sidebar-w) + var(--space-6));
+  /* Текучие СИММЕТРИЧНЫЕ поля. В отличие от навбара, контенту разрешено
+     заходить под кнопку-тоггл (поле может стать меньше --tog-clear) — ради
+     зеркальности. Поля уменьшаются равномерно от макс. (gap+sidebar+space-6,
+     ≈280px на широких) до минимума (--float-gap) по мере сужения страницы.
+     Когда поля минимальны (≤~960px вьюпорта) — блоки переходят в стопку
+     (см. responsive.css), и далее сужаются уже сами блоки. */
+  margin-inline: clamp(
+    var(--float-gap),
+    calc(50vw - 450px),
+    calc(var(--float-gap) + var(--float-sidebar-w) + var(--space-6))
+  );
   max-width: none;
   /* Верхний отступ так, чтобы зазор «шапка → заголовок вкладки» был равен
      зазору между большими блоками (--space-6 = 1.5rem). app-layout уже

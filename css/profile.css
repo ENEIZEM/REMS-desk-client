@@ -585,6 +585,12 @@ body[data-role="employee"] .members-row-stats { display: none; }
   padding: var(--space-2);
   border-radius: var(--radius-md);
   transition: background var(--trans-fast);
+  /* Узкая колонка (2 блока в ряд на средних экранах): раньше кластеры
+     stats/actions (flex-shrink:0) выдавливали .team-colleague-text в 0 →
+     ФИО/почта/оценки исчезали. Теперь строка переносит — stats/actions
+     уезжают на вторую строку, а текст держит min-basis (см. ниже). */
+  flex-wrap: wrap;
+  row-gap: .35rem;
 }
 .team-colleague-row:hover { background: var(--clr-bg-subtle); }
 .team-colleague-row + .team-colleague-row { margin-top: .25rem; }
@@ -624,7 +630,12 @@ body[data-role="employee"] .members-row-stats { display: none; }
   display: flex; align-items: center; justify-content: center;
   font-size: 1.05rem;
 }
-.team-colleague-text { flex: 1; min-width: 0; }
+/* min-width-floor (а не 0): не даём stats/actions выдавить текст в ноль.
+   При нехватке места строка переносит кластеры вниз (flex-wrap выше). */
+.team-colleague-text { flex: 1 1 9rem; min-width: 9rem; }
+/* Когда stats/actions перенеслись на 2-ю строку — прижимаем их вправо,
+   чтобы они не «висели» под аватаром. */
+.team-colleague-row > .team-colleague-stats { margin-left: auto; }
 .team-colleague-name {
   font-weight: 600; font-size: var(--text-sm);
   color: var(--clr-text-primary);
@@ -757,13 +768,16 @@ body[data-role="employee"] .members-row-stats { display: none; }
   max-height: none;
 }
 @media (max-width: 960px) {
-  /* На мобильных складываем колонки вертикально, без принудительной
-     равной высоты. */
+  /* На узких складываем колонки вертикально, без принудительной равной
+     высоты. ВАЖНО: вернуть колонкам и блокам НАТУРАЛЬНУЮ высоту (flex:0 0
+     auto). Иначе flex:1 1 0 (basis 0) в column-флексе без заданной высоты
+     контейнера схлопывает колонки в «полоски» — блоки пропадали. */
   .tab-fill > .profile-two-col {
     flex-direction: column;
     max-height: none;
   }
-  .tab-fill .fill-block { max-height: 60vh; }
+  .tab-fill > .profile-two-col > .profile-col { flex: 0 0 auto; }
+  .tab-fill .fill-block { flex: 0 0 auto; max-height: 60vh; }
 }
 .requests-feed-body > .empty-state:only-child {
   flex: 1 1 auto;

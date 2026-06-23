@@ -10,7 +10,8 @@
   .hero-2col { grid-template-columns: 1fr !important; }
   .hero-mockup { display: none !important; }
   .features { padding: var(--space-12) var(--space-4); }
-  .features-grid { grid-template-columns: 1fr; }
+  /* Сетка фич на мобильных задаётся в landing.css (грузится ПОЗЖЕ этого
+     файла и перебивал бы правило здесь). См. landing.css → @media. */
   .modal { max-width: 100%; border-radius: var(--radius-xl) var(--radius-xl) 0 0; }
   .modal-backdrop { align-items: flex-end; padding: 0; }
 }
@@ -22,6 +23,11 @@
   .code-input { width: 2.25rem; height: 2.75rem; }
   .hero-actions { flex-direction: column; }
 }
+
+/* Текучие поля навбара и контента живут в БАЗОВЫХ правилах (chrome.css):
+   навбар держит левый край за --tog-clear (кнопка-тоггл всегда видна),
+   контент — симметрично сужает поля. Здесь остаётся только СТЭКИНГ блоков,
+   когда поля контента стали минимальными (≈ вьюпорт ≤ 960px). */
 
 /* ═══════════════════════════════════════════════════════════════
    Role-based dashboards (owner / employee / solo)

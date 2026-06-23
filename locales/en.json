@@ -113,7 +113,28 @@
     "footer_tagline": "Repair & Equipment Management System",
     "footer_docs": "Documents",
     "footer_contacts": "Contacts",
-    "footer_repo": "Repository (GitHub)"
+    "footer_repo": "Repository (GitHub)",
+    "cookie_notice": "We don't use tracking cookies. Just your browser's local storage — for sign-in and language.",
+    "demo": {
+      "d1": "HP LaserJet won't print — paper jam in tray 2",
+      "d2": "Dell Latitude 5420 laptop screen replacement",
+      "d3": "Reception monitor won't power on",
+      "d4": "Kyocera MFP jams paper while scanning",
+      "d5": "Thermal paste replacement and PC cleaning",
+      "d6": "Network printer setup in the sales department",
+      "sla1": "1h 10m left · 2h given",
+      "sla2": "3h 40m left · 8h given",
+      "sla3": "take within 25m · 2h given",
+      "sla4": "take within 1h 30m · 4h given",
+      "sla5": "overdue 40m · 4h given",
+      "sla6": "closed in 1h 50m · 2h given",
+      "you": "You",
+      "loc_reception": "Reception",
+      "org_alfa": "Alfa LLC",
+      "org_beta": "Beta LLC",
+      "org_servicepro": "ServicePro",
+      "person1": "Anna Kotova"
+    }
   },
   "auth": {
     "login": {
