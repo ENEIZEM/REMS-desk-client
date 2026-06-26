@@ -30,6 +30,125 @@
    когда поля контента стали минимальными (≈ вьюпорт ≤ 960px). */
 
 /* ═══════════════════════════════════════════════════════════════
+   МОБИЛЬНАЯ НАВИГАЦИЯ ДАШБОРДА (≤768px)
+   • Плавающая кнопка-тоггл и боковой сайдбар убираются; сам сайдбар
+     превращается в НИЖНИЙ навбар (фикс снизу, все пункты в ряд, гориз.
+     скролл при переполнении). Переиспользуем готовый switchTab и
+     роле-логику (скрытые пункты так и остаются display:none).
+   • Шапка как на лендинге: без зазора под тоггл слева, короткий логотип,
+     язык — одной кнопкой-тумблером.
+   • Уведомления — отдельной модалкой по колокольчику (notifications-button.js).
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* — убираем плавающую кнопку-меню и затемняющий scrim — */
+  .float-toggle  { display: none !important; }
+  .sidebar-scrim { display: none !important; }
+
+  /* — шапка во всю ширину, без резерва под тоггл (как на лендинге) — */
+  body[data-sidebar] > .navbar {
+    left: var(--float-gap);
+    right: var(--float-gap);
+    width: auto;
+  }
+  /* короткий логотип вместо полного */
+  .navbar-brand .navbar-logo-full  { display: none; }
+  .navbar-brand .navbar-logo-short { display: block; }
+  /* язык — одна кнопка-тумблер (показываем только НЕактивный язык) */
+  .navbar-actions .lang-switcher { border: none; padding: 0; background: transparent; gap: 0; }
+  .navbar-actions .lang-btn.active { display: none; }
+  .navbar-actions .lang-btn:not(.active) {
+    display: inline-flex; align-items: center;
+    color: var(--clr-navy); background: var(--clr-bg-muted);
+    border: 1px solid var(--clr-border);
+    padding: 0.35rem 0.6rem; border-radius: var(--radius-full);
+  }
+
+  /* — сайдбар → нижний навбар — */
+  .sidebar {
+    position: fixed;
+    top: auto; bottom: 0; left: 0; right: 0;
+    width: 100%; height: auto;
+    flex-direction: row;
+    padding: 0.3rem var(--space-2);
+    border-radius: 0;
+    border: none; border-top: 1px solid var(--clr-border);
+    box-shadow: 0 -6px 18px rgba(15, 23, 42, 0.08);
+    z-index: 200;
+    overflow: visible;
+  }
+  /* всегда видим — игнорируем data-sidebar="closed" (тоггла нет) */
+  body[data-sidebar="closed"] .sidebar {
+    transform: none; opacity: 1; pointer-events: auto;
+  }
+  /* nav — горизонтальный ряд-контейнер (скролл при переполнении). */
+  .sidebar nav {
+    display: flex; flex-direction: row; align-items: stretch;
+    width: 100%; gap: 0.15rem; overflow-x: auto;
+  }
+  /* Секции-обёртки роль-логика показывает инлайном display:block, а скрывает
+     добавляя .hidden (+display:none). На мобиле ВИДИМЫЕ секции (:not(.hidden))
+     перебиваем на flex-ряд — !important бьёт инлайн display:block. Скрытые
+     (solo → org-секция) НЕ трогаем, иначе развернули бы чужие пункты.
+     Скрытие ОТДЕЛЬНЫХ пунктов (display:none) не трогаем — оно сохраняется. */
+  /* display:contents «растворяет» обёртку-секцию: её пункты становятся
+     ПРЯМЫМИ flex-детьми nav. Тогда ВСЕ пункты (из обеих секций) делят ширину
+     одинаково (flex:1 1 0) и имеют равный gap — раньше каждая секция была
+     отдельным flex-ребёнком, и стык секций давал лишний «шов» (Обзор казался
+     оторванным). Скрытые секции (.hidden → display:none) не трогаем. */
+  .sidebar nav .nav-section:not(.hidden) {
+    display: contents !important;
+  }
+  .nav-item {
+    flex: 1 1 0; min-width: 3.25rem;
+    flex-direction: column; gap: 2px;
+    width: auto; padding: 0.4rem 0.25rem;
+    font-size: 0.62rem; line-height: 1.1; text-align: center;
+    white-space: nowrap;
+  }
+  .nav-item i { font-size: 1.25rem; }
+  /* подвал сайдбара (выход/копирайт/почта) в нижнем баре не нужен —
+     выход доступен в меню профиля (аватар в шапке) */
+  .sidebar-footer { display: none; }
+
+  /* — контент во всю ширину + нижний отступ под нижний навбар — */
+  .main-content {
+    margin-inline: 0;
+    padding-inline: var(--space-4);
+    padding-bottom: 5rem;
+  }
+
+  /* тело модалки уведомлений — ограничиваем высоту, лента скроллится */
+  .notif-modal-body { max-height: 70vh; overflow-y: auto; padding: var(--space-2); }
+
+  /* Заголовок вкладки — без левого отступа: в режиме нижнего навбара он
+     должен начинаться на одном уровне с остальным контентом. */
+  .page-header { padding-left: 0; }
+
+  /* Модалки — НАД навбаром. Базовый z-index 100 ниже навбара/нижнего бара
+     (200), поэтому они перекрывали края модалок. В режиме навбара поднимаем
+     бэкдроп выше всего chrome. У модалок есть свой лангсвитчер в шапке,
+     так что доступ к языку не теряется. */
+  .modal-backdrop { z-index: 300; }
+
+  /* ── Обзор на мобиле ──
+     Уведомления теперь в модалке (колокольчик), поэтому правую колонку с
+     лентой уведомлений в обзоре убираем. А «карточку Заявки» разбираем —
+     остаются только сами сворачиваемые списки; подсказку (i) оставляем,
+     прижимая её тонкой строкой над первым списком. */
+  .rq-work-cols .employee-col-right,
+  .rq-work-cols .solo-col-right { display: none; }
+
+  .rq-work-feed.card,
+  .rq-work-feed { border: none; box-shadow: none; background: transparent; }
+  .rq-work-feed > .profile-card-body { padding: 0; }
+  /* лента течёт естественной высотой (а не скролл-боксом 60vh) */
+  .rq-work-feed .requests-feed-body { height: auto; max-height: none; }
+  /* шапку «Заявки» на мобиле скрываем целиком: подсказка переехала в
+     контейнер фильтров выше, заголовок-«Заявки» в режиме голых списков лишний. */
+  .rq-work-feed > .profile-card-header { display: none; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
    Role-based dashboards (owner / employee / solo)
    ═══════════════════════════════════════════════════════════════ */
 
@@ -141,6 +260,13 @@ body[data-role="solo"]     [data-role-only="employee"] {
   grid-template-columns: 1fr 1fr;
   gap: var(--space-6);
   align-items: stretch;
+}
+/* Узкие экраны: две колонки складываются в СТОПКУ (как и остальной контент
+   дашборда — единый алгоритм). Без этого solo/employee-обзор оставлял два
+   блока бок-о-бок на мобиле. Парно с правилами ниже (notifs-card → static). */
+@media (max-width: 960px) {
+  .solo-two-col,
+  .employee-two-col { grid-template-columns: 1fr; }
 }
 /* Рабочая зона «лента | уведомления»: лента шире уведомлений (единые
    пропорции для руководителя и сотрудника). На узких экранах — стопкой. */
@@ -746,7 +872,12 @@ body[data-role="solo"]     [data-role-only="employee"] {
    ═══════════════════════════════════════════════════════════════ */
 
 /* Контейнер кнопок в page-header (у owner — Добавить технику + Пригласить). */
-.page-header-actions { display: inline-flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+.page-header-actions { display: inline-flex; gap: 0.5rem; flex-wrap: wrap; align-items: stretch; }
+/* Когда кнопки переносятся В КОЛОНКУ (узко), делаем их ОДНОЙ ширины: контейнер
+   inline-flex сжимается до самой широкой кнопки («Добавить технику»), а
+   flex:1 заставляет обе занять эту ширину на своих строках. На одной строке
+   (широко) визуально ничего не меняется — растягиваться некуда. */
+.page-header-actions .btn { flex: 1 1 auto; }
 
 /* Список карточек техники — как у контрактов: тонкий padding, вертикальный стек. */
 .profile-card-body.equipment-list {
@@ -912,14 +1043,29 @@ body[data-role="solo"]     [data-role-only="employee"] {
    Группы разделены вертикальными линиями (border-left у не-первой).
    Каждая группа переносится целиком (flex-wrap на контейнере). */
 .rq-subfilters {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1rem;
+  /* Расстояние между группами несёт column-gap (1.4rem), а НЕ padding —
+     тогда у первой группы перенесённой строки НЕТ лишнего отступа слева
+     (column-gap не применяется перед первым элементом строки). */
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.4rem;
   margin-top: 0.85rem;
 }
-.rq-subfilter-group { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; }
-.rq-subfilter-group:not(:first-child) {
-  padding-left: 1rem; border-left: 1px solid var(--clr-border);
+.rq-subfilter-group { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; position: relative; }
+/* Сепаратор — АБСОЛЮТНЫЙ ::before В ГЭПЕ слева от группы (вне потока): его
+   показ/скрытие НЕ меняет ширину/положение группы → нет дрожания у границы
+   переноса. И padding'а у группы нет → в начале перенесённой строки нет
+   пустого места. */
+.rq-subfilter-group:not(:first-child)::before {
+  content: ''; position: absolute; left: -0.7rem; top: 50%; transform: translateY(-50%);
+  height: 1.05em; border-left: 1px solid var(--clr-border);
 }
+/* Группа в начале НОВОЙ строки (класс ставит subfilter-wrap.js) — линию
+   прячем (она бы висела у левого края строки). */
+.rq-subfilter-group.is-row-start::before { display: none; }
 .rq-subfilter-team { flex: 1 1 auto; }
+/* Подсказка по заявкам — внутри контейнера фильтров: прижата вправо, по центру
+   по высоте (align-items:center у .rq-subfilters), без сепаратора (это не
+   .rq-subfilter-group). */
+.rq-subfilters > .rq-filters-hint { margin-left: auto; align-self: center; }
 
 /* Сегмент «Тип заявки» (Все/Внутренние/Партнёрские) со счётчиками. */
 .rq-scope-seg { display: inline-flex; flex-wrap: wrap; gap: 0.3rem; }

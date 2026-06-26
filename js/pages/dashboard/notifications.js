@@ -308,6 +308,39 @@ export function addNotification(notif) {
   // doesn't have to open the bell to find out what just happened.
   playNotificationSound();
   showNotifToast(normalised);
+  // Плюс системное (OS/браузер) уведомление — полезно когда вкладка в фоне.
+  showOSNotification(normalised);
+}
+
+// ── Системные (OS/браузер) уведомления (Web Notifications API) ────────────
+// Дублируем входящие уведомления в системный центр уведомлений, ЕСЛИ юзер
+// дал разрешение. Разрешение спрашиваем по ЖЕСТУ (клик колокольчика, см.
+// notifications-button.js) — браузеры требуют user-gesture и наказывают
+// сайты за спонтанный prompt на загрузке.
+export function osNotificationsSupported() {
+  return typeof window !== 'undefined' && 'Notification' in window;
+}
+export async function requestOSNotificationPermission() {
+  if (!osNotificationsSupported())            return 'unsupported';
+  if (Notification.permission !== 'default')  return Notification.permission;
+  try { return await Notification.requestPermission(); }
+  catch { return Notification.permission; }
+}
+function showOSNotification(n) {
+  if (!osNotificationsSupported() || Notification.permission !== 'granted') return;
+  // Если вкладка АКТИВНА — системное уведомление избыточно (юзер и так видит
+  // угловой тост + ленту). Показываем только когда вкладка в фоне/свернута.
+  if (document.visibilityState === 'visible') return;
+  try {
+    const title = resolveTitle(n);
+    const body  = resolveBody(n);
+    const osn = new Notification(title, {
+      body: body && body !== title ? body : undefined,
+      icon: '/assets/android-chrome-192x192.png',
+      tag:  `rems-notif-${n.id}`,   // схлопывает дубли одного уведомления
+    });
+    osn.onclick = () => { try { window.focus(); } catch (_) {} osn.close(); };
+  } catch (_) { /* тихо — не критично */ }
 }
 
 // Called from onLangChange — labels are language-dependent.
@@ -571,23 +604,31 @@ function renderOverviewNotifs() {
 
   const el = document.querySelector(_renderTargetSelector);
   if (!el) return;
+  renderNotificationsList(el);
+}
 
+/**
+ * Рендерит ТЕКУЩУЮ ленту уведомлений в произвольный контейнер. Используется
+ * и основным overview-таргетом (renderOverviewNotifs), и модалкой
+ * уведомлений на мобиле/узких экранах (notifications-button.js) — НЕЗАВИСИМО,
+ * не трогая overview. Снимок на момент вызова: при открытии модалки дёргаем
+ * заново. Empty-state-текст зависит от активного фильтра (всё/непрочитанные).
+ */
+export function renderNotificationsList(container) {
+  if (!container) return;
   const items = _filter === 'unread'
     ? _notifications.filter(n => !n.read_at)
     : _notifications;
 
   if (!items.length) {
-    // Empty-state text varies by filter — «Нет непрочитанных» если фильтр
-    // активен, иначе общий «Нет уведомлений». Это снимает у юзера
-    // когнитивный диссонанс: «у меня 12 уведомлений, но я вижу пусто».
     const emptyKey = _filter === 'unread' && _notifications.length
       ? 'notifications.empty_unread'
       : 'notifications.empty';
-    el.innerHTML = `<div class="empty-state" style="padding:2rem;"><i class="ph ph-bell-slash"></i><p class="empty-state-text">${t(emptyKey)}</p></div>`;
+    container.innerHTML = `<div class="empty-state" style="padding:2rem;"><i class="ph ph-bell-slash"></i><p class="empty-state-text">${t(emptyKey)}</p></div>`;
     return;
   }
-  el.innerHTML = items.map(notifItemHTML).join('');
-  bindItemHandlers(el, items);
+  container.innerHTML = items.map(notifItemHTML).join('');
+  bindItemHandlers(container, items);
 }
 
 function syncFilterUI() {

@@ -29,6 +29,24 @@
 .toast.warning { background: #92400e; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(1rem); } to { opacity: 1; transform: translateY(0); } }
 
+/* На мобильных/узких — тосты в САМОМ ВЕРХУ (поверх шапки), на всю ширину с
+   равными боковыми отступами; анимация сверху-вниз. ИСКЛЮЧЕНИЕ: лендинг
+   (body.landing) — там единственный тост это «про куки», его держим СНИЗУ,
+   чтобы не закрывать шапку/контент при первом заходе. */
+@media (max-width: 768px) {
+  #toast-container {
+    top: var(--space-2); bottom: auto;
+    left: var(--space-3); right: var(--space-3);
+    align-items: stretch;
+  }
+  .toast { max-width: none; }
+  #toast-container .toast { animation: toast-in-top 0.25s ease; }
+
+  body.landing #toast-container { top: auto; bottom: var(--space-4); }
+  body.landing #toast-container .toast { animation: toast-in 0.25s ease; }
+}
+@keyframes toast-in-top { from { opacity: 0; transform: translateY(-1rem); } to { opacity: 1; transform: translateY(0); } }
+
 /* ── 24. Skeleton ─────────────────────────────────────────────── */
 .skeleton {
   background: linear-gradient(90deg, var(--clr-bg-muted) 25%, var(--clr-border) 50%, var(--clr-bg-muted) 75%);

@@ -185,9 +185,9 @@ export function renderOrgHeader(org, role) {
         </div>
       </div>
       <div class="employee-org-header-actions">
-        <button class="btn btn-danger-ghost btn-sm" data-action="leave-org" title="${t('membership.leave_btn')}">
+        <button class="contract-icon-btn contract-icon-btn--danger" data-action="leave-org"
+                data-ct-tip="${t('membership.leave_btn')}" aria-label="${t('membership.leave_btn')}">
           <i class="ph ph-sign-out"></i>
-          <span data-i18n="membership.leave_btn">Покинуть организацию</span>
         </button>
       </div>
     </div>

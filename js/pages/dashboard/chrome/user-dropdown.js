@@ -30,4 +30,8 @@ export function initUserDropdown({ switchTab }) {
 
   // «Выйти» в низу сайдбара — основная точка выхода теперь здесь.
   q('#btn-sidebar-logout')?.addEventListener('click', () => logout());
+
+  // «Выйти» в самом низу вкладки «Профиль» (главная точка выхода в режиме
+  // нижнего навбара, где подвала сайдбара нет).
+  q('#btn-profile-logout')?.addEventListener('click', () => logout());
 }

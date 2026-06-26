@@ -208,6 +208,16 @@
 }
 .notify-toast.notify-toast-leaving { animation: notify-toast-out 240ms ease-in both; }
 
+/* На мобильных/узких — карточки-уведомления СВЕРХУ (у шапки), на всю ширину
+   с равными боковыми отступами (как и обычные тосты). */
+@media (max-width: 768px) {
+  #notify-toast-container {
+    top: var(--space-2); bottom: auto;
+    left: var(--space-3); right: var(--space-3);
+    max-width: none;
+  }
+}
+
 @keyframes notify-toast-in {
   from { opacity: 0; transform: translateX(.75rem); }
   to   { opacity: 1; transform: translateX(0); }

@@ -119,6 +119,8 @@ body[data-sidebar] > .navbar {
 .navbar-subtitle { font-size: var(--text-xs); color: var(--clr-text-muted); font-weight: 400; }
 /* SVG-логотип в шапке (заменяет иконку + текст). */
 .navbar-logo-img { height: 2.4rem; width: auto; display: block; }
+/* Короткий знак (logo.svg) — только мобила/узкие (responsive.css показывает). */
+.navbar-logo-short { display: none; }
 .navbar-spacer   { flex: 1; }
 .navbar-actions  { display: flex; align-items: center; gap: var(--space-2); }
 

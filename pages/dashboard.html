@@ -124,7 +124,10 @@
 <!-- ── Navbar ──────────────────────────────────────────────────── -->
 <header class="navbar">
   <a href="/" class="navbar-brand" aria-label="REMS-desk">
-    <img class="navbar-logo-img" src="/assets/logo-full.svg" alt="REMS-desk — Repair & Equipment Management System">
+    <!-- Полный знак на десктопе; на мобиле/узких прячется в пользу
+         компактного logo-compact.svg (как на лендинге) — см. responsive.css. -->
+    <img class="navbar-logo-img navbar-logo-full" src="/assets/logo-full.svg" alt="REMS-desk — Repair & Equipment Management System">
+    <img class="navbar-logo-img navbar-logo-short" src="/assets/logo-compact.svg" alt="REMS-desk">
   </a>
 
   <div class="navbar-spacer"></div>
@@ -766,6 +769,14 @@
         </div>
       </div>
 
+      <!-- Выход из аккаунта — в самом низу профиля, во всю ширину как блоки.
+           Главная точка выхода в режиме нижнего навбара (там подвала сайдбара
+           с «Выйти» нет); на ПК дублирует выход из меню профиля/сайдбара. -->
+      <button id="btn-profile-logout" class="btn btn-danger-ghost profile-logout-btn" type="button">
+        <i class="ph ph-sign-out"></i>
+        <span data-i18n="nav.logout">Выйти</span>
+      </button>
+
     </div>
 
   </main>
@@ -779,6 +790,21 @@
 <!--#include "partials/dashboard/equipment.html"-->
 <!--#include "partials/dashboard/requests.html"-->
 <!--#include "partials/dashboard/contracts.html"-->
+
+<!-- ── Notifications modal ─────────────────────────────────────────
+     Открывается колокольчиком в шапке на мобиле/узких экранах (там нет
+     ленты-в-обзоре сбоку). Тело наполняется текущей лентой из
+     notifications.js (renderNotificationsList) при открытии. -->
+<div class="modal-backdrop" id="notifications-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-card-icon navy"><i class="ph-bold ph-bell"></i></div>
+      <div class="modal-header-text"><h3 class="modal-title" data-i18n="notifications.title">Уведомления</h3></div>
+      <button class="modal-close" type="button" data-close-modal="notifications-modal"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="modal-body notif-modal-body" id="notif-modal-list"></div>
+  </div>
+</div>
 
 <div id="toast-container"></div>
 

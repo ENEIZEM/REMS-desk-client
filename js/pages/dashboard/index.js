@@ -51,6 +51,7 @@ import { q }                    from './dom-utils.js';
 import { initSidebar }          from './chrome/sidebar.js';
 import { initUserDropdown }     from './chrome/user-dropdown.js';
 import { initNotificationsButton } from './chrome/notifications-button.js';
+import { initSubfilterWrap }     from './chrome/subfilter-wrap.js';
 import { initMembers, loadMembers } from './members.js';
 
 // Hide the pre-paint navigation overlay the INSTANT JS starts running.
@@ -193,6 +194,7 @@ else applyHashTab();
 initUserDropdown({ switchTab });
 initSidebar();
 initNotificationsButton({ switchTab });
+initSubfilterWrap();
 
 // ─────────────────────────────────────────────────────────────────
 // MODAL HELPERS — primitives live in ./dashboard/ui-helpers.js.

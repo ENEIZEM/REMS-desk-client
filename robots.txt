@@ -1,0 +1,10 @@
+# REMS-desk — robots
+# Главная и страницы входа/регистрации индексируются; всё за авторизацией и
+# служебные пути — закрыты (контента для поиска там нет, всё рендерит JS).
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /pages/dashboard.html
+Disallow: /uploads/
+
+Sitemap: https://rems-desk.ru/sitemap.xml

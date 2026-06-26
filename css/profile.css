@@ -777,13 +777,26 @@ body[data-role="employee"] .members-row-stats { display: none; }
     max-height: none;
   }
   .tab-fill > .profile-two-col > .profile-col { flex: 0 0 auto; }
-  .tab-fill .fill-block { flex: 0 0 auto; max-height: 60vh; }
+  /* Потолок блока оставляет место внизу под шапку следующего блока
+     (≈15rem = верхняя шапка + нижний навбар + «выглядывание» след. шапки). */
+  .tab-fill .fill-block { flex: 0 0 auto; max-height: calc(100vh - 15rem); }
+  /* Тело НЕ растягиваем (flex:0 1 auto): короткий список = высота контента,
+     ползунок появляется ТОЛЬКО когда блок упёрся в потолок. Чинит «ползунок
+     даже при 1 коллеге» (было flex:1 1 auto → тело тянулось и давало скролл). */
+  .tab-fill .fill-block > .profile-card-body { flex: 0 1 auto; }
 }
 .requests-feed-body > .empty-state:only-child {
   flex: 1 1 auto;
   align-self: stretch;
   justify-content: center;
   min-height: 7rem;
+}
+
+/* Кнопка выхода внизу вкладки «Профиль» — во всю ширину как блоки-карточки. */
+.profile-logout-btn {
+  width: 100%;
+  justify-content: center;
+  margin-top: var(--space-6);
 }
 
 /* card-header с правым кластером actions (фильтры + tooltip).
@@ -803,6 +816,9 @@ body[data-role="employee"] .members-row-stats { display: none; }
 .profile-card-header .profile-card-tooltip--end,
 .profile-card-header--with-actions .profile-card-tooltip {
   margin-left: auto;
+  /* Небольшой отступ от правого края: иначе иконка (i) у самого угла
+     карточки чуть срезается её скруглением (.profile-card overflow:hidden). */
+  margin-right: 0.2rem;
 }
 .profile-card-header--with-actions .notif-header-actions ~ .profile-card-tooltip,
 .profile-card-header--with-actions .notif-header-actions + .profile-card-tooltip {
@@ -876,9 +892,14 @@ body[data-role="employee"] .members-row-stats { display: none; }
 }
 .picker-btn .picker-caret { font-size: .8em; opacity: .6; }
 .picker-menu {
-  position: absolute; right: 0; top: calc(100% + .35rem);
+  /* Открываем меню ВПРАВО от кнопки (left:0), а не влево (было right:0):
+     когда фильтр периода переносится в начало строки у левого края, меню с
+     right:0 уезжало за левую границу экрана. С left:0 оно выступает вправо
+     и остаётся на экране. max-width страхует от вылета за правый край. */
+  position: absolute; left: 0; right: auto; top: calc(100% + .35rem);
   z-index: 50;
   min-width: 11rem;
+  max-width: calc(100vw - 2rem);
   background: var(--clr-bg, #fff);
   border: 1px solid var(--clr-border);
   border-radius: var(--radius-md);

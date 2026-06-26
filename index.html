@@ -3,7 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>REMS-desk — Система учёта заявок на ремонт оргтехники</title>
+  <title>REMS-desk — Система учёта заявок на ремонт и обслуживание оргтехники</title>
+
+  <!-- SEO: описание/ключевые слова/индексация. description — то, что
+       поисковик показывает под заголовком в выдаче; canonical защищает от
+       дублей (www/без, http/https, ?query). -->
+  <meta name="description" content="REMS-desk — веб-система учёта заявок на ремонт и обслуживание оргтехники в организациях: роли руководителя, сотрудника и одиночки, двойной SLA, контракты с партнёрами, реестр оборудования, уведомления в реальном времени. Русский и английский интерфейс.">
+  <meta name="keywords" content="REMS-desk, учёт заявок на ремонт, управление заявками, обслуживание оборудования, ремонт оргтехники, система заявок, service desk, helpdesk, SLA, maintenance management, заявки на ремонт техники">
+  <meta name="robots" content="index, follow">
+  <meta name="author" content="REMS-desk">
+  <link rel="canonical" href="https://rems-desk.ru/">
+  <link rel="alternate" hreflang="ru" href="https://rems-desk.ru/">
+  <link rel="alternate" hreflang="x-default" href="https://rems-desk.ru/">
 
   <!-- Favicons / PWA / brand -->
   <link rel="icon" href="/assets/favicon.ico" sizes="any">
@@ -17,16 +28,36 @@
   <!-- Open Graph / Twitter (social link previews) -->
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="REMS-desk">
+  <meta property="og:locale" content="ru_RU">
   <meta property="og:title" content="REMS-desk — Система учёта ремонта и оборудования">
-  <meta property="og:description" content="Учёт и обработка заявок на ремонт и обслуживание оргтехники: контракты, SLA, реестр оборудования.">
+  <meta property="og:description" content="Учёт и обработка заявок на ремонт и обслуживание оргтехники: роли, SLA, контракты, реестр оборудования, уведомления в реальном времени.">
   <meta property="og:url" content="https://rems-desk.ru/">
   <meta property="og:image" content="https://rems-desk.ru/assets/og-image.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="REMS-desk — система учёта заявок на ремонт оргтехники">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="REMS-desk — Система учёта ремонта и оборудования">
   <meta name="twitter:description" content="Учёт и обработка заявок на ремонт и обслуживание оргтехники.">
   <meta name="twitter:image" content="https://rems-desk.ru/assets/og-image.png">
+
+  <!-- Структурированные данные (Schema.org JSON-LD) — помогает поисковикам
+       понять, что это веб-приложение, и показывать расширенные сниппеты. -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "REMS-desk",
+    "description": "Система учёта заявок на ремонт и обслуживание оргтехники в организациях",
+    "url": "https://rems-desk.ru",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "Web",
+    "browserRequirements": "Requires JavaScript",
+    "inLanguage": ["ru", "en"],
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "RUB" },
+    "publisher": { "@type": "Organization", "name": "REMS-desk", "url": "https://rems-desk.ru" }
+  }
+  </script>
   <!-- All assets are self-hosted (no third-party CDN dependency).
        Fonts, icons, three.js + Vanta are bundled under /fonts and
        /vendor. The site survives a full offline run of the backend. -->
@@ -448,14 +479,22 @@
 
     /* Stats row — gray band */
     .stats-row {
-      display: flex;
+      /* GRID, а не flex: равные колонки → равное расстояние между ЦЕНТРАМИ
+         во всех вариантах. И перенос не «по одному» — либо все 4 в ряд, либо
+         сетка 2×2 (на узких). Колонки фикс-ширины + justify-center, чтобы на
+         ультра-широких блоки не разъезжались к краям, а полоса оставалась
+         на всю ширину. */
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 13rem));
       justify-content: center;
-      flex-wrap: wrap;
-      gap: 2.5rem 5rem;
+      gap: 2.5rem 3rem;
       padding: 3rem 1.5rem;
       background: var(--clr-bg-subtle);
       border-top: 1px solid var(--clr-border);
       border-bottom: 1px solid var(--clr-border);
+    }
+    @media (max-width: 768px) {
+      .stats-row { grid-template-columns: repeat(2, minmax(0, 13rem)); }
     }
     .stat-item { text-align: center; }
     .stat-item-val   { font-size: 2rem; font-weight: 800; color: var(--clr-navy); line-height: 1; }
@@ -690,6 +729,10 @@
        только на мобильной ширине вместо полного логотипа. */
     .navbar-logo-short { display: none; }
 
+    /* Секция превью заявок — только мобильные/узкие. На ПК превью живёт в
+       правой колонке героя, поэтому здесь секция скрыта (@media включает). */
+    .rq-preview-section { display: none; }
+
     /* Responsive hero */
     @media (max-width: 768px) {
       /* Лого: полный знак → компактный знак (logo.svg). */
@@ -732,6 +775,29 @@
       .hero-actions  { justify-content: center; width: 100%; }
       .hero-actions .btn-hero-cta { width: 100%; max-width: 22rem; justify-content: center; }
       .hero-mockup   { display: none; }
+
+      /* Превью заявок отдельной секцией (JS переносит сюда .mockup-window).
+         «Макбук»-хром (верхняя панель с точками/URL) убираем — читается как
+         обычная секция главной, а не как окно браузера. */
+      .rq-preview-section {
+        display: block;
+        /* Белый фон (как секция «две модели работы») — чередование с серой
+           полосой статистики выше. */
+        background: var(--clr-bg);
+        padding: var(--space-12) var(--space-4) var(--space-16);
+      }
+      /* Линия-разделитель между статистикой и заявками не нужна — цвета
+         (серый → белый) уже разделяют секции. */
+      .stats-row { border-bottom: none; }
+      .rq-preview-inner { max-width: 560px; margin: 0 auto; text-align: center; }
+      .rq-preview-inner .section-subtitle { margin: 0 auto var(--space-2); }
+      .rq-preview-slot { margin-top: var(--space-6); }
+      .rq-preview-slot .mockup-window {
+        max-width: none; box-shadow: var(--shadow-md);
+        border: 1px solid var(--clr-border); border-radius: var(--radius-xl);
+      }
+      .rq-preview-slot .mockup-topbar { display: none; }
+      .rq-preview-slot .rq-tiles { flex-wrap: wrap; }
     }
   </style>
 </head>
@@ -1039,6 +1105,22 @@
     <div class="stat-item-label" data-i18n="landing.stats_time">среднее время реакции</div>
   </div>
 </div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 2b — Requests preview (ТОЛЬКО мобильные/узкие экраны)
+     На ПК превью-окно живёт в правой колонке героя. На мобиле макет
+     «макбука» убираем, а само превью переносим СЮДА (JS перемещает узел
+     .mockup-window в слот ниже — без дублирования разметки) и оформляем
+     как обычную секцию главной про заявки. Стоит ПОД статистикой.
+     ══════════════════════════════════════════════════════════════ -->
+<section class="rq-preview-section" id="rq-preview-section">
+  <div class="rq-preview-inner">
+    <div class="section-label" data-i18n="landing.preview_label">Заявки</div>
+    <h2 class="section-title" data-i18n="landing.preview_title">Все заявки под контролем</h2>
+    <p class="section-subtitle" data-i18n="landing.preview_subtitle">Плитки-фильтры, приоритеты и сроки — так выглядит рабочий стол заявок.</p>
+    <div class="rq-preview-slot" id="rq-preview-slot"></div>
+  </div>
+</section>
 
 <!-- ══════════════════════════════════════════════════════════════
      SECTION 3 — Guide / two scenarios  (background: white)
@@ -1404,6 +1486,24 @@
     if (retries <= 0) return;
     setTimeout(() => initVanta(retries - 1), 100);
   })(50);
+</script>
+
+<script>
+  // Мобильное превью заявок: переносим ОДИН И ТОТ ЖЕ узел .mockup-window между
+  // правой колонкой героя (ПК) и секцией #rq-preview-slot (мобила) — без
+  // дублирования разметки. appendChild перемещает элемент вместе с его
+  // слушателями (toggle секций / Vanta-resize не теряются). Реагируем на
+  // старт и на смену ширины вьюпорта.
+  (function () {
+    const win      = document.querySelector('.mockup-window');
+    const heroMock = document.querySelector('.hero-mockup');
+    const slot     = document.getElementById('rq-preview-slot');
+    if (!win || !heroMock || !slot) return;
+    const mq = window.matchMedia('(max-width: 768px)');
+    const place = () => { (mq.matches ? slot : heroMock).appendChild(win); };
+    place();
+    try { mq.addEventListener('change', place); } catch (_) { mq.addListener(place); }
+  })();
 </script>
 
 <script type="module">

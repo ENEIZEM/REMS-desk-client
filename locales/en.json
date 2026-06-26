@@ -1,4 +1,107 @@
 {
+  "success": {
+    "auth": {
+      "logged_out": "You have signed out",
+      "new_device_registered": "New device verified",
+      "password_reset": "Password changed",
+      "pin_reset": "PIN changed",
+      "pin_verified": "PIN verified",
+      "registered": "Registration complete",
+      "pin_changed": "PIN changed",
+      "pin_set": "PIN set"
+    },
+    "contracts": {
+      "created": "Contract created",
+      "list": "Contracts loaded",
+      "partner_ok": "Partner organisation found",
+      "terminate_requested": "Termination request sent",
+      "terminate_cancelled": "Termination request cancelled",
+      "terminate_declined": "Termination request declined",
+      "terminated": "Contract terminated",
+      "updated": "Contract updated",
+      "accepted": "Contract accepted",
+      "rejected": "Contract declined",
+      "cancelled": "Contract cancelled",
+      "edit_cancelled": "Contract changes cancelled",
+      "edit_rejected": "Contract changes declined"
+    },
+    "equipment": {
+      "categories": "Categories loaded",
+      "created": "Equipment added",
+      "updated": "Equipment updated",
+      "deleted": "Equipment deleted",
+      "list": "Equipment loaded"
+    },
+    "invite": {
+      "accepted": "Invitation accepted",
+      "meta": "Invitation details loaded"
+    },
+    "members": {
+      "removed": "Member removed"
+    },
+    "membership": {
+      "requested": "Membership request sent",
+      "request_cancelled": "Membership request cancelled",
+      "reapplied": "Request re-sent",
+      "already_pending": "Request already pending",
+      "already_solo": "You already have no organisation",
+      "invitation_accepted": "Invitation accepted",
+      "left_org": "You left the organisation",
+      "status": "Membership status loaded",
+      "status_approved": "Membership approved",
+      "status_pending": "Request pending",
+      "status_rejected": "Request declined",
+      "status_suspended": "Membership suspended"
+    },
+    "notifications": {
+      "fetched": "Notifications loaded",
+      "marked_read": "Notification marked read",
+      "marked_unread": "Notification marked unread",
+      "marked_all_read": "All notifications marked read"
+    },
+    "org": {
+      "invite_sent": "Invitation sent",
+      "invite_sent_to_user": "Invitation sent to the user",
+      "member_reinvited": "Invitation re-sent",
+      "members_list": "Members loaded",
+      "members_pending_list": "Pending list loaded",
+      "member_approved": "Member approved",
+      "member_rejected": "Member declined",
+      "member_suspended": "Member suspended"
+    },
+    "org_profile": {
+      "fetched": "Organisation profile loaded",
+      "settings_updated": "Organisation settings saved"
+    },
+    "profile": {
+      "fetched": "Profile loaded",
+      "updated": "Profile updated",
+      "email_changed": "Email changed",
+      "phone_changed": "Phone changed",
+      "password_changed": "Password changed",
+      "contact_detached": "Contact detached",
+      "session_revoked": "Session ended",
+      "sessions_fetched": "Sessions loaded"
+    },
+    "requests": {
+      "created": "Request created",
+      "updated": "Request updated",
+      "detail": "Request loaded",
+      "list": "Requests loaded"
+    },
+    "upload": {
+      "temp_saved": "File uploaded",
+      "avatar_confirmed": "Avatar updated",
+      "avatar_removed": "Avatar removed",
+      "logo_confirmed": "Logo updated",
+      "logo_removed": "Logo removed",
+      "deleted": "File deleted"
+    },
+    "verification": {
+      "code_sent": "Code sent",
+      "code_verified": "Code verified"
+    }
+  },
   "app": {
     "name": "REMS-desk",
     "fullName": "Information Subsystem",
@@ -115,6 +218,9 @@
     "footer_contacts": "Contacts",
     "footer_repo": "Repository (GitHub)",
     "cookie_notice": "We don't use tracking cookies. Just your browser's local storage — for sign-in and language.",
+    "preview_label": "Requests",
+    "preview_title": "Every request under control",
+    "preview_subtitle": "Filter tiles, priorities and deadlines — this is the request workspace.",
     "demo": {
       "d1": "HP LaserJet won't print — paper jam in tray 2",
       "d2": "Dell Latitude 5420 laptop screen replacement",
@@ -408,6 +514,7 @@
       "status_unchanged": "Status unchanged",
       "user_suspended": "User is suspended",
       "owner_cannot_leave": "An owner cannot leave their own organisation",
+      "has_active_requests": "You can't leave the organisation while you have open requests — close or hand them over first",
       "not_approved_member": "Only an active member can leave",
       "cannot_cancel_approved": "Active membership cannot be cancelled — leave the organisation instead",
       "not_invited": "There is no invitation from the organisation",
@@ -416,6 +523,7 @@
     "members": {
       "cannot_remove_self": "You cannot remove yourself",
       "cannot_remove_owner": "The organisation owner cannot be removed",
+      "has_active_requests": "You can't remove a member who has open requests — reassign or close them first",
       "not_found": "Member not found"
     },
     "schema": {
@@ -469,6 +577,7 @@
       "not_a_party": "Your organization is not a party to this contract.",
       "not_awaiting_you": "This contract is not awaiting your decision.",
       "not_active": "This action is only available for an active contract.",
+      "has_active_requests": "You can't terminate a contract while it has open requests — close or cancel them first.",
       "no_pending_termination": "There is no active termination request.",
       "cannot_respond_own_termination": "You cannot respond to your own termination request.",
       "not_pending": "The contract is not pending.",

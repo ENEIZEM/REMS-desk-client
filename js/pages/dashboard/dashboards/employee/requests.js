@@ -60,6 +60,11 @@ export function mountEmployeeRequests(profile) {
       <div class="rq-subfilter-group rq-subfilter-period">
         ${renderTogglePicker(PERIODS, activePeriod, 'data-req-period-picker')}
       </div>
+      <!-- Подсказка по заявкам — в контейнере фильтров, по центру по высоте,
+           прижата вправо (.rq-filters-hint { margin-left:auto }). -->
+      <span class="profile-card-tooltip rq-filters-hint" tabindex="0" data-tooltip-key="employee.requests_header_hint">
+        <i class="ph ph-info"></i>
+      </span>
     </div>
 
     <!-- Рабочая зона: лента заявок | уведомления (2-колонка, лента шире) —
@@ -68,14 +73,10 @@ export function mountEmployeeRequests(profile) {
     <div class="profile-two-col employee-two-col rq-work-cols" style="margin-top:.75rem;">
       <div class="profile-col employee-col-left">
         <div class="card profile-card rq-work-feed">
-          <div class="profile-card-header profile-card-header--with-actions">
+          <div class="profile-card-header">
             <div class="profile-card-icon navy"><i class="ph-bold ph-clipboard-text"></i></div>
             <h3 class="profile-card-title" data-i18n="employee.requests_header_full">Заявки</h3>
-            <div class="notif-header-actions">
-              <span class="profile-card-tooltip profile-card-tooltip--end" tabindex="0" data-tooltip-key="employee.requests_header_hint">
-                <i class="ph ph-info"></i>
-              </span>
-            </div>
+            <!-- Подсказка переехала в контейнер фильтров (.rq-subfilters). -->
           </div>
           <div class="profile-card-body requests-feed-body" id="employee-requests-body"
                data-requests-list data-rq-segmented data-rq-filter="emp-requests-tab"
