@@ -1,4 +1,4 @@
-**Languages**: [English](README.md) | [Русский](README.ru.md)
+**Languages**: English | [Русский](README.ru.md)
 
 # REMS-desk — Frontend (client)
 
@@ -6,11 +6,11 @@ Web client for **REMS-desk**, a system for tracking office-equipment repair &
 maintenance requests. It is a **dependency-free, no-bundler** vanilla
 JavaScript (ES modules) + HTML + CSS application. The same static files power
 the marketing landing page and the role-based dashboard (owner / employee /
-solo). In production the files are served by the [backend](https://github.com/ENEIZEM/REMS-desk-core)
+solo). In production the files are served by the [backend](https://github.com/ENEIZEM/REMS-desk)
 itself (Express `express.static`), so there is **no separate frontend host**.
 
 - Live site: https://rems-desk.ru
-- Backend repository (API + DB + serves this client): https://github.com/ENEIZEM/REMS-desk-core
+- Backend repository (API + DB + serves this client): https://github.com/ENEIZEM/REMS-desk
 
 ---
 

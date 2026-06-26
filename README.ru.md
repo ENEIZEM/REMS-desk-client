@@ -1,4 +1,4 @@
-**Languages**: [English](README.md) | [Русский](README.ru.md)
+**Languages**: [English](README.md) | Русский
 
 # REMS-desk — Фронтенд (клиент)
 
@@ -6,11 +6,11 @@
 оргтехники. Это приложение на **чистом JavaScript (ES-модули) без сборщика и без
 зависимостей** + HTML + CSS. Одни и те же статические файлы обслуживают и
 маркетинговый лендинг, и ролевой дашборд (руководитель / сотрудник / одиночка).
-В проде файлы раздаёт сам [бэкенд](https://github.com/ENEIZEM/REMS-desk-core)
+В проде файлы раздаёт сам [бэкенд](https://github.com/ENEIZEM/REMS-desk)
 (Express `express.static`), поэтому **отдельного хостинга фронта нет**.
 
 - Сайт: https://rems-desk.ru
-- Репозиторий бэкенда (API + БД + раздаёт этот клиент): https://github.com/ENEIZEM/REMS-desk-core
+- Репозиторий бэкенда (API + БД + раздаёт этот клиент): https://github.com/ENEIZEM/REMS-desk
 
 ---
 
